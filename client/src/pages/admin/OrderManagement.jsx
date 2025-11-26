@@ -81,6 +81,13 @@ const OrderManagement = () => {
                 setOrderDetails(response.data.orderDetails);
                 setOrderTotalPrice(response.data.totalPrice);
                 setShowOrderDetails(true);
+                // Cập nhật coupon info vào selectedOrder
+                if (response.data.coupon) {
+                    setSelectedOrder(prev => ({
+                        ...prev,
+                        coupon: response.data.coupon
+                    }));
+                }
             }
         } catch (error) {
             console.error('Lỗi khi lấy chi tiết đơn hàng:', error);
@@ -122,8 +129,10 @@ const OrderManagement = () => {
             if (response.data) {
                 setSelectedOrder(prev => ({
                     ...prev,
-                    orderDetails: response.data.orderDetails
+                    orderDetails: response.data.orderDetails,
+                    coupon: response.data.coupon
                 }));
+                setOrderTotalPrice(response.data.totalPrice);
             }
         } catch (error) {
             console.error('Lỗi khi lấy thông tin chi tiết đơn hàng:', error);
@@ -721,53 +730,91 @@ const OrderManagement = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                                                {selectedOrder?.orderDetails?.map((detail, index) => (
-                                                    <tr key={detail.orderDetailID} className={index % 2 === 0 ? '' : isDarkMode ? 'bg-gray-800/30' : 'bg-gray-50'}>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="relative group">
-                                                                    {detail.product?.color?.image && (
-                                                                        <>
-                                                                            <img
-                                                                                src={detail.product.color.image}
-                                                                                alt={detail.product.name}
-                                                                                className="h-16 w-16 object-cover rounded-lg shadow-sm transform transition-transform duration-200 group-hover:scale-110"
-                                                                            />
-                                                                            <div className="absolute inset-0 rounded-lg bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200" />
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                                <div>
-                                                                    <div className="font-medium">{detail.product?.name}</div>
-                                                                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                                        SKU: {detail.SKU}
+                                                {selectedOrder?.orderDetails?.map((detail, index) => {
+                                                    // Parse giá từ string sang number
+                                                    const parsePrice = (price) => {
+                                                        if (!price) return 0;
+                                                        if (typeof price === 'number') return price;
+                                                        return Number(price.toString().replace(/\./g, ''));
+                                                    };
+                                                    
+                                                    const hasPromotion = detail.product?.promotion;
+                                                    const originalPrice = parsePrice(detail.product?.originalPrice || detail.product?.price);
+                                                    const finalPrice = hasPromotion ? parsePrice(detail.product.promotion.discountedPrice) : originalPrice;
+                                                    const subtotal = finalPrice * detail.quantity;
+                                                    
+                                                    return (
+                                                        <tr key={detail.orderDetailID} className={index % 2 === 0 ? '' : isDarkMode ? 'bg-gray-800/30' : 'bg-gray-50'}>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="relative group">
+                                                                        {detail.product?.color?.image && (
+                                                                            <>
+                                                                                <img
+                                                                                    src={detail.product.color.image}
+                                                                                    alt={detail.product.name}
+                                                                                    className="h-16 w-16 object-cover rounded-lg shadow-sm transform transition-transform duration-200 group-hover:scale-110"
+                                                                                />
+                                                                                <div className="absolute inset-0 rounded-lg bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200" />
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="font-medium">{detail.product?.name}</div>
+                                                                        <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                            SKU: {detail.SKU}
+                                                                        </div>
+                                                                        {hasPromotion && (
+                                                                            <div className="mt-1 flex items-center gap-2">
+                                                                                <span className="inline-block px-2 py-0.5 text-xs font-semibold text-white bg-red-500 rounded">
+                                                                                    -{detail.product.promotion.discountPercent}%
+                                                                                </span>
+                                                                                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                                                    {detail.product.promotion.name}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
-                                                                {detail.product.color?.colorName || 'N/A'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100">
-                                                                {detail.size}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100">
-                                                                {detail.quantity}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            {Number(detail.product?.price?.toString().replace(/\./g, ''))?.toLocaleString('vi-VN')}đ
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right font-medium">
-                                                            {(Number(detail.product?.price?.toString().replace(/\./g, '')) * detail.quantity)?.toLocaleString('vi-VN')}đ
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 whitespace-nowrap">
+                                                                    {detail.product.color?.colorName || 'N/A'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100 whitespace-nowrap">
+                                                                    {detail.size}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100">
+                                                                    {detail.quantity}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                {hasPromotion && (
+                                                                    <div className="text-xs text-gray-400 line-through mb-1">
+                                                                        {originalPrice?.toLocaleString('vi-VN')}đ
+                                                                    </div>
+                                                                )}
+                                                                <div className={`${hasPromotion ? 'text-red-600 font-medium' : ''}`}>
+                                                                    {finalPrice?.toLocaleString('vi-VN')}đ
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                {hasPromotion && (
+                                                                    <div className="text-xs text-gray-400 line-through mb-1">
+                                                                        {(originalPrice * detail.quantity)?.toLocaleString('vi-VN')}đ
+                                                                    </div>
+                                                                )}
+                                                                <div className={`font-medium ${hasPromotion ? 'text-red-600' : ''}`}>
+                                                                    {subtotal?.toLocaleString('vi-VN')}đ
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                             <tfoot>
                                                 <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
@@ -775,25 +822,30 @@ const OrderManagement = () => {
                                                         Tổng tiền hàng:
                                                     </td>
                                                     <td className="px-5 py-3 text-right font-medium">
-                                                        {orderTotalPrice?.toLocaleString('vi-VN')}đ
-                                                    </td>
-                                                </tr>
-                                                <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                                                    <td colSpan="5" className="px-5 py-3 text-right font-medium text-gray-500">
-                                                        Tổng tiền hàng sau khuyến mãi:
-                                                    </td>
-                                                    <td className="px-5 py-3 text-right font-medium text-purple-500">
                                                         {selectedOrder?.totalPrice?.toLocaleString('vi-VN')}đ
                                                     </td>
                                                 </tr>
-                                                <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                                                    <td colSpan="5" className="px-5 py-3 text-right font-medium text-gray-500">
-                                                        Áp dụng Voucher:
-                                                    </td>
-                                                    <td className="px-5 py-3 text-right font-medium text-red-500">
-                                                        -{(selectedOrder?.totalPrice - selectedOrder?.paymentPrice || 0).toLocaleString('vi-VN')}đ
-                                                    </td>
-                                                </tr>
+                                                {selectedOrder?.coupon && (selectedOrder.totalPrice - selectedOrder.paymentPrice) > 0 && (
+                                                    <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                                                        <td colSpan="5" className="px-5 py-3 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <div className="text-right">
+                                                                    <div className="text-sm font-medium text-gray-500">Áp dụng mã giảm giá:</div>
+                                                                    <div className="text-xs text-green-600 font-semibold">
+                                                                        {selectedOrder.coupon.code}
+                                                                        {selectedOrder.coupon.discountType === 'percentage' 
+                                                                            ? ` (Giảm ${selectedOrder.coupon.discountValue}%)`
+                                                                            : ` (Giảm ${selectedOrder.coupon.discountValue?.toLocaleString('vi-VN')}đ)`
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-3 text-right font-medium text-red-500">
+                                                            -{(selectedOrder.totalPrice - selectedOrder.paymentPrice).toLocaleString('vi-VN')}đ
+                                                        </td>
+                                                    </tr>
+                                                )}
                                                 <tr className={`${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} font-bold`}>
                                                     <td colSpan="5" className="px-5 py-3 text-right">
                                                         Tổng thanh toán:
@@ -962,84 +1014,131 @@ const OrderManagement = () => {
                                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Kích thước</th>
                                                 <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Số lượng</th>
                                                 <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Đơn giá</th>
+                                                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Thành tiền</th>
                                             </tr>
                                         </thead>
                                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                                            {orderDetails?.map((detail, index) => (
-                                                <tr key={detail.orderDetailID} className={index % 2 === 0 ? 'bg-transparent' : isDarkMode ? 'bg-gray-700/30' : 'bg-gray-50/50'}>
-                                                    <td className="px-4 py-4">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="relative group">
-                                                                {detail.product?.color?.image && (
-                                                                    <>
-                                                                        <img
-                                                                            src={detail.product.color.image}
-                                                                            alt={detail.product.name}
-                                                                            className="h-16 w-16 object-cover rounded-lg shadow-sm transform transition-transform duration-200 group-hover:scale-110"
-                                                                        />
-                                                                        <div className="absolute inset-0 rounded-lg bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200" />
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-medium hover:text-green-500 transition-colors duration-200">
-                                                                    {detail.product?.name}
+                                            {orderDetails?.map((detail, index) => {
+                                                // Parse giá từ string sang number
+                                                const parsePrice = (price) => {
+                                                    if (!price) return 0;
+                                                    if (typeof price === 'number') return price;
+                                                    return Number(price.toString().replace(/\./g, ''));
+                                                };
+                                                
+                                                const hasPromotion = detail.product?.promotion;
+                                                const originalPrice = parsePrice(detail.product?.originalPrice || detail.product?.price);
+                                                const finalPrice = hasPromotion ? parsePrice(detail.product.promotion.discountedPrice) : originalPrice;
+                                                const subtotal = finalPrice * detail.quantity;
+                                                
+                                                return (
+                                                    <tr key={detail.orderDetailID} className={index % 2 === 0 ? 'bg-transparent' : isDarkMode ? 'bg-gray-700/30' : 'bg-gray-50/50'}>
+                                                        <td className="px-4 py-4">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="relative group">
+                                                                    {detail.product?.color?.image && (
+                                                                        <>
+                                                                            <img
+                                                                                src={detail.product.color.image}
+                                                                                alt={detail.product.name}
+                                                                                className="h-16 w-16 object-cover rounded-lg shadow-sm transform transition-transform duration-200 group-hover:scale-110"
+                                                                            />
+                                                                            <div className="absolute inset-0 rounded-lg bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200" />
+                                                                        </>
+                                                                    )}
                                                                 </div>
-                                                                <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                                    SKU: {detail.SKU}
+                                                                <div>
+                                                                    <div className="font-medium hover:text-green-500 transition-colors duration-200">
+                                                                        {detail.product?.name}
+                                                                    </div>
+                                                                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                        SKU: {detail.SKU}
+                                                                    </div>
+                                                                    {hasPromotion && (
+                                                                        <div className="mt-1 flex items-center gap-2">
+                                                                            <span className="inline-block px-2 py-0.5 text-xs font-semibold text-white bg-red-500 rounded">
+                                                                                -{detail.product.promotion.discountPercent}%
+                                                                            </span>
+                                                                            <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                                                {detail.product.promotion.name}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 whitespace-nowrap">
+                                                                {detail.product.color?.colorName || 'N/A'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100 whitespace-nowrap">
+                                                                {detail.size}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center">
+                                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100">
+                                                                {detail.quantity}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-right">
+                                                            {hasPromotion && (
+                                                                <div className="text-xs text-gray-400 line-through mb-1">
+                                                                    {originalPrice?.toLocaleString('vi-VN')}đ
+                                                                </div>
+                                                            )}
+                                                            <div className={`font-medium ${hasPromotion ? 'text-red-600' : ''}`}>
+                                                                {finalPrice?.toLocaleString('vi-VN')}đ
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-right">
+                                                            {hasPromotion && (
+                                                                <div className="text-xs text-gray-400 line-through mb-1">
+                                                                    {(originalPrice * detail.quantity)?.toLocaleString('vi-VN')}đ
+                                                                </div>
+                                                            )}
+                                                            <div className={`font-semibold ${hasPromotion ? 'text-red-600' : ''}`}>
+                                                                {subtotal?.toLocaleString('vi-VN')}đ
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                                                <td colSpan="5" className="px-4 py-3 text-right font-medium text-gray-500">
+                                                    Tổng tiền hàng:
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-medium">
+                                                    {selectedOrder?.totalPrice?.toLocaleString('vi-VN')}đ
+                                                </td>
+                                            </tr>
+                                            {selectedOrder?.coupon && (selectedOrder.totalPrice - selectedOrder.paymentPrice) > 0 && (
+                                                <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                                                    <td colSpan="5" className="px-4 py-3 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <div className="text-right">
+                                                                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Áp dụng mã giảm giá:</div>
+                                                                <div className="text-xs text-green-600 dark:text-green-400 font-semibold">
+                                                                    {selectedOrder.coupon.code}
+                                                                    {selectedOrder.coupon.discountType === 'percentage' 
+                                                                        ? ` (Giảm ${selectedOrder.coupon.discountValue}%)`
+                                                                        : ` (Giảm ${selectedOrder.coupon.discountValue?.toLocaleString('vi-VN')}đ)`
+                                                                    }
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-4">
-                                                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                                                            {detail.product.color?.colorName || 'N/A'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                                                            {detail.size}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-4 text-center">
-                                                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                                                            {detail.quantity}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-4 text-right font-medium">
-                                                        {detail.product?.price?.toLocaleString('vi-VN')}đ
+                                                    <td className="px-4 py-3 text-right font-medium text-red-500">
+                                                        -{(selectedOrder.totalPrice - selectedOrder.paymentPrice).toLocaleString('vi-VN')}đ
                                                     </td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                                                <td colSpan="4" className="px-4 py-3 text-right font-medium text-gray-500">
-                                                    Tổng tiền hàng:
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-medium">
-                                                    {orderTotalPrice?.toLocaleString('vi-VN')}đ
-                                                </td>
-                                            </tr>
-                                            <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                                                <td colSpan="4" className="px-4 py-3 text-right font-medium text-gray-500">
-                                                    Tổng tiền hàng sau khuyến mãi:
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-medium text-purple-500">
-                                                    {selectedOrder?.totalPrice?.toLocaleString('vi-VN')}đ
-                                                </td>
-                                            </tr>
-                                            <tr className={isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                                                <td colSpan="4" className="px-4 py-3 text-right font-medium text-gray-500">
-                                                    Áp dụng Voucher:
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-medium text-red-500">
-                                                    -{(selectedOrder?.totalPrice - selectedOrder?.paymentPrice || 0).toLocaleString('vi-VN')}đ
-                                                </td>
-                                            </tr>
+                                            )}
                                             <tr className={`${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} font-bold`}>
-                                                <td colSpan="4" className="px-4 py-3 text-right">
-                                                    Tổng cộng:
+                                                <td colSpan="5" className="px-4 py-3 text-right">
+                                                    Tổng thanh toán:
                                                 </td>
                                                 <td className="px-4 py-3 text-right text-green-600">
                                                     {selectedOrder?.paymentPrice?.toLocaleString('vi-VN')}đ
