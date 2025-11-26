@@ -50,12 +50,12 @@ button {
 /* Custom scrollbar styling */
 html {
   scrollbar-width: thin !important; /* Firefox */
-  scrollbar-color: #3b82f6 #e5e7eb !important; /* Firefox - Blue thumb, light gray track */
+  scrollbar-color: #9b9c9c #e5e7eb !important; /* Firefox - Blue thumb, light gray track */
 }
 
 body {
   scrollbar-width: thin !important;
-  scrollbar-color: #3b82f6 #e5e7eb !important;
+  scrollbar-color: #a4a5a7 #e5e7eb !important;
 }
 
 /* Custom scrollbar for WebKit browsers (Chrome, Safari) */
