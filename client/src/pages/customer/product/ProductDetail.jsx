@@ -558,6 +558,24 @@ const ProductDetail = () => {
     return size ? size.stock : 0;
   };
 
+  // Hàm kiểm tra xem một size có còn hàng không (với màu đã chọn)
+  const isSizeAvailable = (size) => {
+    if (!selectedColor) return true; // Nếu chưa chọn màu thì hiển thị tất cả size
+    const color = product.colors.find(c => c.colorName === selectedColor);
+    if (!color) return false;
+    const sizeObj = color.sizes.find(s => s.size === size);
+    return sizeObj && sizeObj.stock > 0;
+  };
+
+  // Hàm kiểm tra xem một màu có còn hàng không (với size đã chọn)
+  const isColorAvailable = (colorName) => {
+    if (!selectedSize) return true; // Nếu chưa chọn size thì hiển thị tất cả màu
+    const color = product.colors.find(c => c.colorName === colorName);
+    if (!color) return false;
+    const sizeObj = color.sizes.find(s => s.size === selectedSize);
+    return sizeObj && sizeObj.stock > 0;
+  };
+
   // Hàm lấy danh sách ảnh của màu đã chọn
   const getSelectedColorImages = () => {
     if (!selectedColor) return [];
@@ -1301,18 +1319,30 @@ const ProductDetail = () => {
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-4">Kích thước</h3>
               <div className="grid grid-cols-4 gap-4">
-                {product.availableSizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`py-2 text-center rounded-md ${selectedSize === size
-                      ? `${theme === 'tet' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`
-                      : `${theme === 'tet' ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'}`
+                {product.availableSizes.map((size) => {
+                  const isAvailable = isSizeAvailable(size);
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => isAvailable && setSelectedSize(size)}
+                      disabled={!isAvailable}
+                      className={`py-2 text-center rounded-md relative transition-all ${
+                        !isAvailable
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                          : selectedSize === size
+                          ? `${theme === 'tet' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`
+                          : `${theme === 'tet' ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'}`
                       }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+                    >
+                      <span className={!isAvailable ? 'line-through' : ''}>{size}</span>
+                      {!isAvailable && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-full h-0.5 bg-gray-400 rotate-[-20deg]"></div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               {/* Thông báo về size đặc biệt */}
               <div className={`mt-3 p-3 rounded-lg ${theme === 'tet' ? 'bg-red-50/80' : 'bg-blue-50/80'} border ${theme === 'tet' ? 'border-red-100' : 'border-blue-100'}`}>
@@ -1359,19 +1389,22 @@ const ProductDetail = () => {
                   const colorCode = getColorCode(color);
                   const isPattern = isPatternOrStripe(color);
                   const bgSize = getBackgroundSize(color);
+                  const isAvailable = isColorAvailable(color);
 
                   // Hiển thị màu sắc
                   return (
                     <span key={color}
                       className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium
-                        ${selectedColor === color
+                        ${!isAvailable
+                          ? 'opacity-50 cursor-not-allowed'
+                          : selectedColor === color
                           ? theme === 'tet'
                             ? 'ring-2 ring-red-500'
                             : 'ring-2 ring-blue-500'
-                          : 'hover:ring-1 hover:ring-gray-300'
+                          : 'hover:ring-1 hover:ring-gray-300 cursor-pointer'
                         } 
-                        transition-all cursor-pointer relative group`}
-                      onClick={() => setSelectedColor(color)}
+                        transition-all relative group`}
+                      onClick={() => isAvailable && setSelectedColor(color)}
                       style={{
                         // Áp dụng màu nền hoặc pattern
                         background: colorCode,
@@ -1384,13 +1417,19 @@ const ProductDetail = () => {
                       }}
                     >
                       {/* Tooltip hiển thị tên màu khi hover */}
-                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-normal text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        {color}
+                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-normal text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        {color} {!isAvailable && '(Hết hàng)'}
                       </span>
                       {/* Tên màu */}
-                      <span className={`${isPattern ? 'text-gray-700' : ''}`}>
+                      <span className={`${isPattern ? 'text-gray-700' : ''} ${!isAvailable ? 'line-through' : ''}`}>
                         {color}
                       </span>
+                      {/* Dấu gạch chéo cho màu hết hàng */}
+                      {!isAvailable && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-full h-0.5 bg-gray-500 rotate-[-20deg]"></div>
+                        </div>
+                      )}
                     </span>
                   );
                 })}
