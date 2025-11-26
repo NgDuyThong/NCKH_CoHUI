@@ -102,20 +102,20 @@ const PageBanner = ({
         </div>
 
         {/* Container nội dung */}
-        <div className="relative container mx-auto px-4 py-20 sm:py-24">
+        <div className="relative container mx-auto px-4 py-12 sm:py-14">
           <div className="max-w-4xl mx-auto">
             {/* Icon với background hiệu ứng động */}
             {Icon && (
-              <div className="relative mb-6 inline-block">
+              <div className="relative mb-4 inline-block">
                 <div className="absolute inset-0 bg-white/20 rounded-full blur-xl animate-pulse"></div>
-                <div className="relative bg-white/10 backdrop-blur-sm p-4 rounded-full">
-                  <Icon className="w-12 h-12 text-white" />
+                <div className="relative bg-white/10 backdrop-blur-sm p-3 rounded-full">
+                  <Icon className="w-8 h-8 text-white" />
                 </div>
               </div>
             )}
 
             {/* Tiêu đề với đường chữ nổi */}
-            <h1 className="relative text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight inline-block">
+            <h1 className="relative text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3 tracking-tight inline-block">
               {title.toUpperCase()}
               <div className="absolute bottom-0 left-0 w-full h-1 bg-white/30 rounded overflow-hidden">
                 <div className="h-full w-1/3 bg-white rounded animate-slide"></div>
@@ -124,10 +124,10 @@ const PageBanner = ({
 
             {/* Chữ mờ với gradient */}
             {subtitle && (
-              <p className={`text-xl ${theme === 'tet'
+              <p className={`text-base sm:text-lg ${theme === 'tet'
                 ? 'text-yellow-200'
                 : 'text-blue-200'
-                } font-medium mt-4`}>
+                } font-medium mt-2`}>
                 {subtitle}
               </p>
             )}
@@ -139,7 +139,7 @@ const PageBanner = ({
 
         {/* Đường chia hiệu ứng động */}
         <div className="absolute bottom-0 left-0 right-0">
-          <svg className="w-full h-16 sm:h-24" viewBox="0 0 1200 120" preserveAspectRatio="none">
+          <svg className="w-full h-12 sm:h-16" viewBox="0 0 1200 120" preserveAspectRatio="none">
             <path
               d="M0,0 C150,90 400,120 600,100 C800,80 1050,40 1200,100 L1200,120 L0,120 Z"
               className="fill-[#F8FAFC]"
@@ -149,8 +149,8 @@ const PageBanner = ({
       </div>
 
       {/* Breadcrumb hiệu ứng động */}
-      <div className="container mx-auto px-4">
-        <div className={`relative -mt-8 sm:-mt-12 mb-8 inline-flex items-center gap-2 px-6 py-3 rounded-full shadow-lg ${theme === 'tet'
+      <div className="container mx-auto px-4 pt-4">
+        <div className={`relative mb-8 inline-flex items-center gap-2 px-5 py-2.5 rounded-full shadow-lg ${theme === 'tet'
           ? 'bg-gradient-to-r from-red-600 to-red-700 text-white'
           : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white'
           } backdrop-blur-md`}>

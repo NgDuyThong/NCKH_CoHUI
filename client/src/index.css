@@ -47,25 +47,53 @@ button {
   background-color: darkgray;
 }
 
-/* Ẩn thanh cuộn cho tất cả các phần tử */
-* {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+/* Custom scrollbar styling */
+html {
+  scrollbar-width: thin !important; /* Firefox */
+  scrollbar-color: #3b82f6 #e5e7eb !important; /* Firefox - Blue thumb, light gray track */
 }
 
-/* Ẩn thanh cuộn cho WebKit browsers (Chrome, Safari) */
+body {
+  scrollbar-width: thin !important;
+  scrollbar-color: #3b82f6 #e5e7eb !important;
+}
+
+/* Custom scrollbar for WebKit browsers (Chrome, Safari) */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
 *::-webkit-scrollbar {
-  display: none;
+  width: 12px !important;
+  height: 12px !important;
 }
 
-/* Giữ khả năng cuộn nhưng ẩn thanh cuộn */
-.overflow-y-auto, .overflow-x-auto {
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: #f3f4f6 !important;
+  border-radius: 10px !important;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #60a5fa, #3b82f6) !important;
+  border-radius: 10px !important;
+  border: 2px solid #f3f4f6 !important;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #3b82f6, #2563eb) !important;
+}
+
+/* Ẩn scrollbar cho các phần tử cụ thể nếu cần */
+.hide-scrollbar {
   -ms-overflow-style: none;
-  scrollbar-width: 6px;
+  scrollbar-width: none;
 }
 
-.overflow-y-auto::-webkit-scrollbar,
-.overflow-x-auto::-webkit-scrollbar {
+.hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 

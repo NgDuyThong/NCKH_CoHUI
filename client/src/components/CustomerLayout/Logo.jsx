@@ -6,21 +6,21 @@ const Logo = () => {
     const { theme } = useTheme();
 
     return (
-        <div className="w-auto">
-            <Link to="/" className="relative group inline-block">
+        <div className="w-auto flex items-center">
+            <Link to="/" className="relative group inline-flex items-center">
                 <div className="flex items-center">
                     {/* Logo Text */}
-                    <div className="relative">
-                        <span className={`text-2xl font-bold ${theme === 'tet'
-                                ? 'text-yellow-300/90'
+                    <div className="relative drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+                        <span className={`text-2xl font-extrabold ${theme === 'tet'
+                                ? 'text-yellow-300'
                                 : 'text-white'
-                            } transition-all duration-300 animate-pulse-slow`}>
+                            } transition-all duration-300 animate-pulse-slow drop-shadow-lg`}>
                             Icon
                         </span>
                         <span className={`ml-2 text-2xl font-light ${theme === 'tet'
-                                ? 'text-yellow-200/90'
-                                : 'text-gray-300'
-                            } transition-all duration-300`}>
+                                ? 'text-yellow-100'
+                                : 'text-gray-100'
+                            } transition-all duration-300 drop-shadow-lg`}>
                             Denim
                         </span>
 

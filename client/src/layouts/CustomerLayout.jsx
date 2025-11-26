@@ -219,7 +219,9 @@ const CustomerLayout = () => {
         }`}>
         <nav className="container mx-auto px-4">
           <div className="flex items-center h-16">
-            <Logo />
+            <div className="flex items-center">
+              <Logo />
+            </div>
 
             {/* Mobile menu button - Hiển thị trên màn <= 1024px */}
             <button
@@ -975,25 +977,25 @@ const CustomerLayout = () => {
 
               {/* Thông tin liên hệ với hiệu ứng hover mới */}
               <div className="space-y-2">
-                <p className={`text-sm ${theme === 'tet' ? 'text-yellow-100' : 'text-gray-300'}`}>
-                  Địa chỉ: &nbsp;
+                <div className={`text-sm ${theme === 'tet' ? 'text-yellow-100' : 'text-gray-300'}`}>
+                  <span className="whitespace-nowrap">Địa chỉ:</span>
                   <a
                     href={`https://maps.google.com/?q=${shopInfo.address}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`relative group inline-flex items-center ${theme === 'tet'
+                    className={`relative group inline-flex items-center ml-2 ${theme === 'tet'
                       ? 'text-yellow-300 hover:text-yellow-500'
                       : 'text-blue-300 hover:text-blue-500'
                       } transition-colors duration-300`}
                   >
                     <span>{shopInfo.address}</span>
-                    <FaMapMarker size={16} className="ml-1" />
+                    <FaMapMarker size={16} className="ml-1 flex-shrink-0" />
                     <span className={`absolute -bottom-0.5 left-0 w-0 h-0.5 ${theme === 'tet'
                       ? 'bg-yellow-400'
                       : 'bg-blue-300'
                       } transition-all duration-300 group-hover:w-full`}></span>
                   </a>
-                </p>
+                </div>
 
                 <p className={`text-sm ${theme === 'tet' ? 'text-yellow-100' : 'text-gray-300'}`}>
                   Điện thoại: &nbsp;

@@ -1,4 +1,4 @@
-// Home.jsx - Trang chủ của website TVT Store
+// Home.jsx - Trang chủ của website Icon Denim
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -399,7 +399,7 @@ const Home = () => {
       </section>
 
       {/* Banner Section */}
-      <section className={`py-20 ${theme === 'tet' ? 'bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'}`}>
+      <section className={`py-8 md:py-12 ${theme === 'tet' ? 'bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'}`}>
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {banners.map((banner) => (
@@ -463,7 +463,7 @@ const Home = () => {
       </section>
 
       {/* Flash Sale Section */}
-      <section className={`py-12 md:py-20 ${theme === 'tet'
+      <section className={`py-6 md:py-10 ${theme === 'tet'
           ? 'bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50'
           : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
         }`}>
@@ -747,8 +747,8 @@ const Home = () => {
             <p className={`text-xl ${theme === 'tet' ? 'text-red-600' : 'text-blue-600'
               }`}>
               {theme === 'tet'
-                ? 'Mừng Xuân Ất Tỵ, TVT Store gửi tặng những phần quà đặc biệt:'
-                : 'Đón hè rực rỡ với những ưu đãi hấp dẫn từ TVT Store:'}
+                ? 'Mừng Xuân Ất Tỵ, Icon Denim gửi tặng những phần quà đặc biệt:'
+                : 'Đón hè rực rỡ với những ưu đãi hấp dẫn từ Icon Denim:'}
             </p>
           </div>
 
