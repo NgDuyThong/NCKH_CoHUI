@@ -1258,28 +1258,28 @@ const OrderManagement = () => {
                         <table className="w-full">
                             <thead>
                                 <tr className={`text-left ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '120px' }}>
                                         Mã đơn hàng
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '180px' }}>
                                         Khách hàng
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '130px' }}>
                                         Tổng tiền
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '150px' }}>
                                         Trạng thái đơn
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '170px' }}>
                                         Trạng thái vận chuyển
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '160px' }}>
                                         Thanh toán
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '120px' }}>
                                         Ngày đặt
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '140px' }}>
                                         Thao tác
                                     </th>
                                 </tr>
@@ -1312,7 +1312,7 @@ const OrderManagement = () => {
                                             key={order.orderID}
                                             className={`group transition-colors hover:${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}
                                         >
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4" style={{ minWidth: '120px' }}>
                                                 <div className="flex items-center gap-2">
                                                     <FiShoppingBag className="w-5 h-5 text-green-500" />
                                                     <span className={`text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
@@ -1320,31 +1320,31 @@ const OrderManagement = () => {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4" style={{ minWidth: '180px' }}>
                                                 <div className="flex items-center gap-2">
-                                                    <FiUser className="w-5 h-5 text-blue-500" />
-                                                    <span className={`text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                                    <FiUser className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                                    <span className={`text-base whitespace-nowrap ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                                                         {order.fullname}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-base font-semibold text-green-600">
+                                            <td className="px-6 py-4" style={{ minWidth: '130px' }}>
+                                                <span className="text-base font-semibold text-green-600 whitespace-nowrap">
                                                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.paymentPrice)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${getOrderStatusColor(order.orderStatus)}`}>
+                                            <td className="px-6 py-4" style={{ minWidth: '150px' }}>
+                                                <span className={`inline-block px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap ${getOrderStatusColor(order.orderStatus)}`}>
                                                     {getOrderStatusText(order.orderStatus)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${getShippingStatusColor(order.shippingStatus)}`}>
+                                            <td className="px-6 py-4" style={{ minWidth: '170px' }}>
+                                                <span className={`inline-block px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap ${getShippingStatusColor(order.shippingStatus)}`}>
                                                     {getShippingStatusText(order.shippingStatus)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${
+                                            <td className="px-6 py-4" style={{ minWidth: '160px' }}>
+                                                <span className={`inline-block px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap ${
                                                     order.isPayed 
                                                         ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                                                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100'
@@ -1352,8 +1352,8 @@ const OrderManagement = () => {
                                                     {order.isPayed ? '✅ Đã thanh toán' : '⏳ Chưa thanh toán'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                            <td className="px-6 py-4" style={{ minWidth: '120px' }}>
+                                                <span className={`text-base whitespace-nowrap ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                                                     {formatDate(order.createdAt)}
                                                 </span>
                                             </td>

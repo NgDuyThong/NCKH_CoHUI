@@ -815,25 +815,25 @@ const Customers = () => {
                         <table className="w-full">
                             <thead>
                                 <tr className={`text-left ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '180px' }}>
                                         Họ và tên
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '100px' }}>
                                         Giới tính
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '200px' }}>
                                         Email
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '130px' }}>
                                         Số điện thoại
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '150px' }}>
                                         Vai trò
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '150px' }}>
                                         Trạng thái
                                     </th>
-                                    <th className={`px-6 py-4 text-base font-medium text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                                    <th className={`px-6 py-4 text-base font-medium text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`} style={{ minWidth: '180px' }}>
                                         Thao tác
                                     </th>
                                 </tr>
@@ -866,29 +866,29 @@ const Customers = () => {
                                             key={customer._id}
                                             className={`group transition-colors hover:${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}
                                         >
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4" style={{ minWidth: '180px' }}>
                                                 <div className="flex items-center gap-2">
-                                                    <FiUser className="w-5 h-5 text-green-500" />
-                                                    <span className={`text-base font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                                                    <FiUser className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                                    <span className={`text-base font-medium whitespace-nowrap ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                                                         {customer.fullname}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${customer.gender === 'male'
+                                            <td className="px-6 py-4" style={{ minWidth: '100px' }}>
+                                                <span className={`px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap ${customer.gender === 'male'
                                                         ? 'bg-indigo-100 text-indigo-600'
                                                         : 'bg-pink-100 text-pink-600'
                                                     }`}>
                                                     {getGenderText(customer.gender)}
                                                 </span>
                                             </td>
-                                            <td className={`px-6 py-4 text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                            <td className={`px-6 py-4 text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} style={{ minWidth: '200px' }}>
                                                 {customer.email}
                                             </td>
-                                            <td className={`px-6 py-4 text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                            <td className={`px-6 py-4 text-base whitespace-nowrap ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} style={{ minWidth: '130px' }}>
                                                 {customer.phone}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4" style={{ minWidth: '150px' }}>
                                                 <span className={`inline-block px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap ${
                                                     customer.role === 'admin' 
                                                         ? 'bg-red-100 text-red-600'
@@ -899,7 +899,7 @@ const Customers = () => {
                                                     {getRoleLabel(customer.role)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4" style={{ minWidth: '150px' }}>
                                                 <span className={`inline-block px-3 py-1.5 text-sm font-medium rounded-full whitespace-nowrap ${!customer.isDisabled
                                                         ? 'bg-green-100 text-green-600'
                                                         : 'bg-red-100 text-red-600'

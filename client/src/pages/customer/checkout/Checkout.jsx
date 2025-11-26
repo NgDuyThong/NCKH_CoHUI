@@ -148,31 +148,63 @@ const Checkout = () => {
 
     return (
       <div className="space-y-4">
-        {cart.items.map((item, index) => (
-          <div key={index} className="flex gap-4">
-            <div className="w-20 h-20 rounded-lg overflow-hidden">
-              <img
-                src={item.product.imageURL}
-                alt={item.product.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-900">{item.product.name}</h3>
-              <p className="text-sm text-gray-500">
-                {item.product.color} - Size {item.product.size}
-              </p>
-              <div className="flex justify-between items-center mt-1">
-                <p className="text-sm">
-                  SL: {item.quantity}
+        {cart.items.map((item, index) => {
+          // Kiểm tra xem sản phẩm có khuyến mãi không
+          const hasPromotion = item.product.promotion && item.product.promotion.discountedPrice;
+          const originalPrice = item.product.originalPrice || item.product.price;
+          const finalPrice = hasPromotion ? item.product.promotion.discountedPrice : originalPrice;
+          
+          return (
+            <div key={index} className="flex gap-4">
+              <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                <img
+                  src={item.product.imageURL}
+                  alt={item.product.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-900 line-clamp-2">{item.product.name}</h3>
+                <p className="text-sm text-gray-500">
+                  {item.product.color} - Size {item.product.size}
                 </p>
-                <p className="font-medium">
-                  {formatPrice(item.subtotal)}đ
-                </p>
+                
+                {/* Hiển thị thông tin khuyến mãi nếu có */}
+                {hasPromotion && (
+                  <div className="mt-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-white bg-red-500 px-2 py-0.5 rounded">
+                        -{item.product.promotion.discountPercent}%
+                      </span>
+                      <span className="text-xs text-gray-500 line-through">
+                        {formatPrice(originalPrice)}đ
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-600 font-medium">
+                      {item.product.promotion.name}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-sm text-gray-600">
+                    SL: {item.quantity}
+                  </p>
+                  <div className="text-right">
+                    {hasPromotion && (
+                      <p className="text-xs text-gray-400 line-through">
+                        {formatPrice(Number(originalPrice.toString().replace(/\./g, '')) * item.quantity)}đ
+                      </p>
+                    )}
+                    <p className={`font-semibold ${hasPromotion ? 'text-red-600' : 'text-gray-900'}`}>
+                      {formatPrice(item.subtotal)}đ
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
