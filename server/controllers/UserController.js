@@ -125,6 +125,56 @@ class UserController {
         }
     }
 
+    //!ADMIN: Cập nhật vai trò người dùng
+    async updateUserRole(req, res) {
+        try {
+            const { id } = req.params;
+            const { role } = req.body;
+
+            // Kiểm tra role hợp lệ
+            const validRoles = [
+                'admin', 
+                'customer',
+                'customer_manager',
+                'product_manager',
+                'order_manager',
+                'coupon_manager',
+                'promotion_manager',
+                'notification_manager'
+            ];
+
+            if (!validRoles.includes(role)) {
+                return res.status(400).json({
+                    message: 'Vai trò không hợp lệ'
+                });
+            }
+
+            const user = await User.findOne({ userID: id });
+            if (!user) {
+                return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+            }
+
+            // Cập nhật role
+            user.role = role;
+            await user.save();
+
+            res.json({
+                message: 'Cập nhật vai trò thành công',
+                user: {
+                    userID: user.userID,
+                    fullname: user.fullname,
+                    email: user.email,
+                    role: user.role
+                }
+            });
+        } catch (error) {
+            res.status(500).json({
+                message: 'Có lỗi xảy ra khi cập nhật vai trò',
+                error: error.message
+            });
+        }
+    }
+
     // USER: Lấy thông tin cá nhân
     async getProfile(req, res) {
         try {

@@ -12,6 +12,7 @@ router.put('/change-password', authenticateToken, UserController.changePassword)
 router.get('/admin/users', authenticateCustomerManager, UserController.getUsersChoADMIN); // Lấy danh sách người dùng cho admin
 router.put('/admin/users/:id', authenticateCustomerManager, UserController.updateUser); // Cập nhật thông tin người dùng
 router.patch('/admin/users/toggle/:id', authenticateCustomerManager, UserController.toggleUserStatus); // Vô hiệu hóa/Kích hoạt tài khoản
+router.patch('/admin/users/:id/role', isAdmin, UserController.updateUserRole); // Cập nhật vai trò người dùng (chỉ admin)
 
 
 
