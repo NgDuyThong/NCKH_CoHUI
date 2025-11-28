@@ -28,7 +28,7 @@ const MultipleImageUpload = ({ onImageUpload, currentImages = [] }) => {
                 formData.append('images', file);
             }
 
-            const response = await axios.post('/api/admin/products/admin/products/upload-images', formData, {
+            const response = await axios.post('/api/products/upload-images', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },

@@ -211,6 +211,13 @@ class UserController {
                 return res.status(404).json({ message: 'Không tìm thấy người dùng' });
             }
 
+            // Validate gender nếu có
+            if (gender && !['male', 'female'].includes(gender)) {
+                return res.status(400).json({
+                    message: 'Giới tính không hợp lệ. Chỉ chấp nhận: male, female'
+                });
+            }
+
             // Kiểm tra nếu số điện thoại mới khác số cũ
             if (phone && phone !== user.phone) {
                 // Kiểm tra xem số điện thoại mới có trùng với user khác không

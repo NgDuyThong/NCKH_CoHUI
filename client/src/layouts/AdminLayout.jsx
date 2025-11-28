@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
+import AdminProfileModal from '../components/AdminProfileModal';
 import { useTheme } from '../contexts/AdminThemeContext';
 import { useNavigate } from 'react-router-dom';
 
 const AdminLayout = () => {
     const { isDarkMode, toggleTheme } = useTheme();
     const navigate = useNavigate();
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     // Xử lý đăng xuất
     const handleLogout = () => {
@@ -19,6 +21,18 @@ const AdminLayout = () => {
         navigate('/login');
     };
 
+    // Xử lý mở modal thông tin cá nhân
+    const handleProfileClick = () => {
+        setIsProfileModalOpen(true);
+    };
+
+    // Xử lý đóng modal và refresh thông tin
+    const handleCloseModal = () => {
+        setIsProfileModalOpen(false);
+        // Trigger re-render của sidebar để cập nhật thông tin mới
+        window.dispatchEvent(new Event('adminInfoUpdated'));
+    };
+
     return (
         // Container chính với theme động
         <div className={`flex h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
@@ -27,6 +41,7 @@ const AdminLayout = () => {
                 isDarkMode={isDarkMode}
                 toggleTheme={toggleTheme}
                 handleLogout={handleLogout}
+                onProfileClick={handleProfileClick}
             />
 
             {/* Phần nội dung chính - sẽ thay đổi theo route */}
@@ -36,6 +51,13 @@ const AdminLayout = () => {
                 {/* Outlet để render các component con */}
                 <Outlet />
             </div>
+
+            {/* Modal thông tin cá nhân - nằm ngoài sidebar để hiển thị trên toàn màn hình */}
+            <AdminProfileModal 
+                isOpen={isProfileModalOpen}
+                onClose={handleCloseModal}
+                isDarkMode={isDarkMode}
+            />
         </div>
     );
 };

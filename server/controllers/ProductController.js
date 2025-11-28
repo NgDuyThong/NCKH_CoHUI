@@ -1020,8 +1020,27 @@ class ProductController {
         try {
             const { id } = req.params;
 
-            // Tìm sản phẩm
-            const product = await Product.findOne({ productID: id });
+            // Tìm sản phẩm - hỗ trợ cả productID và _id
+            let product = null;
+            
+            // Kiểm tra xem id có phải ObjectId format (24 ký tự hex)
+            if (/^[0-9a-fA-F]{24}$/.test(id)) {
+                try {
+                    product = await Product.findById(id);
+                } catch (err) {
+                    console.log('Không tìm thấy theo _id:', err.message);
+                }
+            }
+            
+            // Nếu chưa tìm thấy và id là số, tìm theo productID
+            if (!product && !isNaN(id)) {
+                try {
+                    product = await Product.findOne({ productID: parseInt(id) });
+                } catch (err) {
+                    console.log('Không tìm thấy theo productID:', err.message);
+                }
+            }
+            
             if (!product) {
                 return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
             }
@@ -1386,9 +1405,23 @@ class ProductController {
                 },
             ]);
 
+            // Log số lượng sản phẩm thực tế trong database
+            console.log(`[ADMIN] Tìm thấy ${products.length} sản phẩm trong database`);
+            
+            // Lọc bỏ các sản phẩm không hợp lệ (không có _id hoặc dữ liệu bị lỗi)
+            const validProducts = products.filter(product => {
+                const isValid = product._id && (product.productID || product._id);
+                if (!isValid) {
+                    console.warn('[ADMIN] Phát hiện sản phẩm không hợp lệ:', product);
+                }
+                return isValid;
+            });
+
+            console.log(`[ADMIN] Còn lại ${validProducts.length} sản phẩm hợp lệ sau khi lọc`);
+
             // Xử lý thumbnail với Cloudinary
             const productsWithCloudinary = await Promise.all(
-                products.map(async (product) => ({
+                validProducts.map(async (product) => ({
                 ...product,
                     thumbnail: await getImageLink(product.thumbnail),
                 }))
@@ -1396,10 +1429,10 @@ class ProductController {
 
             // Tính toán thống kê
             const stats = {
-                totalMaleProducts: products.filter((p) => p.target === "Nam").length,
-                totalFemaleProducts: products.filter((p) => p.target === "Nữ").length,
-                totalDeactivatedProducts: products.filter((p) => !p.isActivated).length,
-                total: products.length,
+                totalMaleProducts: validProducts.filter((p) => p.target === "Nam").length,
+                totalFemaleProducts: validProducts.filter((p) => p.target === "Nữ").length,
+                totalDeactivatedProducts: validProducts.filter((p) => !p.isActivated).length,
+                total: validProducts.length,
             };
 
             res.json({
@@ -1424,19 +1457,42 @@ class ProductController {
 
             const { id } = req.params;
 
-            // Lấy thông tin cơ bản của sản phẩm, sử dụng productID thay vì _id
-            const product = await Product.findOne({ productID: id })
-                .populate("targetInfo", "name")
-                .populate("categoryInfo", "name");
+            // Lấy thông tin cơ bản của sản phẩm - hỗ trợ cả productID và _id
+            let product = null;
+            
+            // Kiểm tra xem id có phải ObjectId format (24 ký tự hex)
+            if (/^[0-9a-fA-F]{24}$/.test(id)) {
+                try {
+                    product = await Product.findById(id)
+                        .populate("targetInfo", "name")
+                        .populate("categoryInfo", "name");
+                } catch (err) {
+                    console.log('Không tìm thấy theo _id:', err.message);
+                }
+            }
+            
+            // Nếu chưa tìm thấy và id là số, tìm theo productID
+            if (!product && !isNaN(id)) {
+                try {
+                    product = await Product.findOne({ productID: parseInt(id) })
+                        .populate("targetInfo", "name")
+                        .populate("categoryInfo", "name");
+                } catch (err) {
+                    console.log('Không tìm thấy theo productID:', err.message);
+                }
+            }
 
             if (!product) {
                 return res.status(404).json({
                     message: "Không tìm thấy sản phẩm",
                 });
             }
+            
+            // Sử dụng productID cho các quan hệ, hoặc _id nếu productID không tồn tại
+            const productIdentifier = product.productID || product._id.toString();
 
             // Lấy tất cả màu của sản phẩm
-            const colors = await ProductColor.find({ productID: product.productID });
+            const colors = await ProductColor.find({ productID: productIdentifier });
 
             // Lấy thông tin size và tồn kho cho từng màu
             const colorsWithSizes = await Promise.all(
@@ -1504,6 +1560,8 @@ class ProductController {
                 category: product.categoryInfo?.name,
                 target: product.targetInfo?.name,
                 thumbnail: await getImageLink(product.thumbnail),
+                isActivated: product.isActivated, // Thêm trạng thái kích hoạt
+                createdAt: product.createdAt, // Thêm ngày tạo
                 colors: colorsWithSizes,
                 promotion: activePromotion
                     ? {
@@ -1556,17 +1614,56 @@ class ProductController {
                 colors,
             } = req.body;
 
+            // Log dữ liệu nhận được để debug
+            console.log('[CREATE PRODUCT] Received data:', {
+                name,
+                price,
+                thumbnail,
+                categoryID,
+                targetID,
+                colorsCount: colors?.length
+            });
+
             // Kiểm tra dữ liệu đầu vào
-            if (
-                !name ||
-                !price ||
-                !description ||
-                !thumbnail ||
-                !categoryID ||
-                !targetID
-            ) {
+            if (!name || !name.trim()) {
                 return res.status(400).json({
-                    message: "Vui lòng điền đầy đủ thông tin sản phẩm",
+                    message: "Tên sản phẩm không được để trống",
+                });
+            }
+
+            if (!price || isNaN(price) || price <= 0) {
+                return res.status(400).json({
+                    message: "Giá sản phẩm không hợp lệ",
+                });
+            }
+
+            if (!description || !description.trim()) {
+                return res.status(400).json({
+                    message: "Mô tả sản phẩm không được để trống",
+                });
+            }
+
+            if (!thumbnail || !thumbnail.trim()) {
+                return res.status(400).json({
+                    message: "Ảnh đại diện không được để trống",
+                });
+            }
+
+            if (!categoryID || isNaN(categoryID)) {
+                return res.status(400).json({
+                    message: "Danh mục không hợp lệ",
+                });
+            }
+
+            if (!targetID || isNaN(targetID)) {
+                return res.status(400).json({
+                    message: "Đối tượng không hợp lệ",
+                });
+            }
+
+            if (!colors || !Array.isArray(colors) || colors.length === 0) {
+                return res.status(400).json({
+                    message: "Vui lòng thêm ít nhất một màu sắc",
                 });
             }
 
@@ -1603,6 +1700,29 @@ class ProductController {
 
             // Xử lý màu sắc và size nếu có
             if (colors && colors.length > 0) {
+                // Validate từng màu trước khi tạo
+                for (let i = 0; i < colors.length; i++) {
+                    const color = colors[i];
+                    
+                    if (!color.colorName || !color.colorName.trim()) {
+                        return res.status(400).json({
+                            message: `Tên màu ${i + 1} không được để trống`,
+                        });
+                    }
+
+                    if (!color.images || !Array.isArray(color.images) || color.images.length === 0) {
+                        return res.status(400).json({
+                            message: `Vui lòng thêm ảnh cho màu ${color.colorName}`,
+                        });
+                    }
+
+                    if (!color.sizes || !Array.isArray(color.sizes) || color.sizes.length === 0) {
+                        return res.status(400).json({
+                            message: `Vui lòng thêm size cho màu ${color.colorName}`,
+                        });
+                    }
+                }
+
                 // Tạo colorID mới
                 const lastColor = await ProductColor.findOne().sort({ colorID: -1 });
                 let nextColorID = lastColor ? lastColor.colorID + 1 : 1;
@@ -1614,14 +1734,17 @@ class ProductController {
                 let nextSizeStockID = lastSizeStock ? lastSizeStock.sizeStockID + 1 : 1;
 
                 for (const color of colors) {
+                    console.log(`[CREATE] Creating color: ${color.colorName}, images:`, color.images);
+                    
                     // Tạo màu mới
                     const newColor = new ProductColor({
                         colorID: nextColorID,
                         productID: newProductID,
-                        colorName: color.colorName,
-                        images: color.images,
+                        colorName: color.colorName.trim(),
+                        images: color.images, // Array các publicId
                     });
                     const savedColor = await newColor.save();
+                    console.log(`[CREATE] Saved color ID: ${savedColor.colorID}`);
 
                     // Tạo size stocks cho màu này
                     if (color.sizes && color.sizes.length > 0) {
@@ -1696,8 +1819,9 @@ class ProductController {
 
 
         } catch (error) {
-            console.error("Lỗi khi thêm sản phẩm mới:", error);
+            console.error("[CREATE] ❌ Lỗi khi thêm sản phẩm mới:", error);
             res.status(500).json({
+                success: false,
                 message: "Có lỗi xảy ra khi thêm sản phẩm mới",
                 error: error.message,
             });
@@ -1711,8 +1835,27 @@ class ProductController {
             const updateData = req.body;
             const thumbnailFile = req.files?.thumbnail;
 
-            // Kiểm tra sản phẩm tồn tại
-            const product = await Product.findOne({ productID: id });
+            // Kiểm tra sản phẩm tồn tại - hỗ trợ cả productID và _id
+            let product = null;
+            
+            // Kiểm tra xem id có phải ObjectId format (24 ký tự hex)
+            if (/^[0-9a-fA-F]{24}$/.test(id)) {
+                try {
+                    product = await Product.findById(id);
+                } catch (err) {
+                    console.log('Không tìm thấy theo _id:', err.message);
+                }
+            }
+            
+            // Nếu chưa tìm thấy và id là số, tìm theo productID
+            if (!product && !isNaN(id)) {
+                try {
+                    product = await Product.findOne({ productID: parseInt(id) });
+                } catch (err) {
+                    console.log('Không tìm thấy theo productID:', err.message);
+                }
+            }
+            
             if (!product) {
                 return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
             }
@@ -1788,53 +1931,99 @@ class ProductController {
             // Import hàm xóa ảnh từ Cloudinary
             const { deleteImage: deleteCloudinaryImage } = require('../middlewares/ImagesCloudinary_Controller');
 
-            // Tìm sản phẩm
-            const product = await Product.findOne({ productID: id });
+            // Tìm sản phẩm - hỗ trợ cả productID và _id
+            let product = null;
+            
+            // Kiểm tra xem id có phải ObjectId format (24 ký tự hex)
+            if (/^[0-9a-fA-F]{24}$/.test(id)) {
+                try {
+                    product = await Product.findById(id);
+                } catch (err) {
+                    console.log('Không tìm thấy theo _id:', err.message);
+                }
+            }
+            
+            // Nếu chưa tìm thấy và id là số, tìm theo productID
+            if (!product && !isNaN(id)) {
+                try {
+                    product = await Product.findOne({ productID: parseInt(id) });
+                } catch (err) {
+                    console.log('Không tìm thấy theo productID:', err.message);
+                }
+            }
+            
             if (!product) {
                 return res.status(404).json({ 
                     success: false,
                     message: "Không tìm thấy sản phẩm" 
                 });
             }
+            
+            // Sử dụng productID cho các quan hệ, hoặc _id nếu productID không tồn tại
+            const productIdentifier = product.productID;
+            
+            console.log(`[DELETE] Đang xóa sản phẩm: ${product.name}`);
+            console.log(`[DELETE] productID: ${product.productID}, _id: ${product._id}`);
 
             // Xóa thumbnail của sản phẩm từ Cloudinary nếu có
             if (product.thumbnail) {
-                const isThumbnailDeleted = await deleteCloudinaryImage(product.thumbnail);
-                if (!isThumbnailDeleted) {
-                    return res.status(500).json({
-                        success: false,
-                        message: `Không thể xóa thumbnail: ${product.thumbnail}`
-                    });
+                try {
+                    const isThumbnailDeleted = await deleteCloudinaryImage(product.thumbnail);
+                    if (!isThumbnailDeleted) {
+                        console.warn(`Không thể xóa thumbnail: ${product.thumbnail}, tiếp tục xóa sản phẩm`);
+                    }
+                } catch (cloudinaryError) {
+                    console.warn('Lỗi khi xóa thumbnail từ Cloudinary:', cloudinaryError);
+                    // Tiếp tục xóa sản phẩm ngay cả khi xóa ảnh thất bại
                 }
             }
 
-            // Tìm tất cả màu sắc của sản phẩm
-            const colors = await ProductColor.find({ productID: id });
-            const colorIDs = colors.map(color => color.colorID);
+            // Chỉ tìm và xóa màu sắc nếu sản phẩm có productID hợp lệ
+            let colors = [];
+            let colorIDs = [];
+            
+            if (productIdentifier) {
+                // Sản phẩm có productID - tìm màu sắc bình thường
+                colors = await ProductColor.find({ productID: productIdentifier });
+                colorIDs = colors.map(color => color.colorID);
+                console.log(`[DELETE] Tìm thấy ${colors.length} màu cho productID ${productIdentifier}`);
+            } else {
+                // Sản phẩm không có productID - không thể có màu sắc (vì ProductColor.productID là Number bắt buộc)
+                console.warn(`[DELETE] Sản phẩm không có productID, bỏ qua xóa màu sắc`);
+            }
 
             // Xóa tất cả ảnh của các màu từ Cloudinary
             for (const color of colors) {
                 if (color.images && color.images.length > 0) {
                     for (const imageUrl of color.images) {
-                        const isDeleted = await deleteCloudinaryImage(imageUrl);
-                        if (!isDeleted) {
-                            return res.status(500).json({
-                                success: false,
-                                message: `Không thể xóa hình ảnh: ${imageUrl}`
-                            });
+                        try {
+                            const isDeleted = await deleteCloudinaryImage(imageUrl);
+                            if (!isDeleted) {
+                                console.warn(`Không thể xóa hình ảnh: ${imageUrl}, tiếp tục`);
+                            }
+                        } catch (cloudinaryError) {
+                            console.warn('Lỗi khi xóa ảnh màu từ Cloudinary:', cloudinaryError);
+                            // Tiếp tục xóa ngay cả khi xóa ảnh thất bại
                         }
                     }
                 }
             }
 
-            // Xóa tất cả size-stock liên quan đến các màu
-            await ProductSizeStock.deleteMany({ colorID: { $in: colorIDs } });
+            // Xóa tất cả size-stock liên quan đến các màu (nếu có)
+            if (colorIDs.length > 0) {
+                await ProductSizeStock.deleteMany({ colorID: { $in: colorIDs } });
+                console.log(`[DELETE] Đã xóa size-stock cho ${colorIDs.length} màu`);
+            }
 
-            // Xóa tất cả màu sắc liên quan
-            await ProductColor.deleteMany({ productID: id });
+            // Xóa tất cả màu sắc liên quan (nếu có)
+            if (productIdentifier) {
+                await ProductColor.deleteMany({ productID: productIdentifier });
+                console.log(`[DELETE] Đã xóa màu sắc cho productID ${productIdentifier}`);
+            }
 
-            // Xóa sản phẩm chính
-            await Product.deleteOne({ productID: id });
+            // Xóa sản phẩm chính - sử dụng _id để đảm bảo xóa chính xác
+            await Product.deleteOne({ _id: product._id });
+            console.log(`[DELETE] Đã xóa sản phẩm ${product.name} (${product._id})`);
 
             res.json({
                 success: true,

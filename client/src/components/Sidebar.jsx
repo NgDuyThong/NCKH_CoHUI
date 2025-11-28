@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiUsers, FiPackage, FiShoppingCart, FiSettings, FiSun, FiMoon, FiLogOut, FiTag, FiBell, FiBarChart2 } from 'react-icons/fi';
+import { FiUsers, FiPackage, FiShoppingCart, FiSettings, FiSun, FiMoon, FiLogOut, FiTag, FiBell, FiBarChart2, FiUser } from 'react-icons/fi';
 import { BsShop } from 'react-icons/bs';
 
 // Danh sách các mục menu trong sidebar với phân quyền
@@ -61,12 +61,40 @@ const menuItems = [
    }
 ];
 
-const Sidebar = ({ isDarkMode, toggleTheme, handleLogout }) => {
+const Sidebar = ({ isDarkMode, toggleTheme, handleLogout, onProfileClick }) => {
    // Hook lấy thông tin về route hiện tại
    const location = useLocation();
    
    // Lấy role từ localStorage
    const userRole = localStorage.getItem('role') || 'customer';
+   
+   // State cho thông tin admin
+   const [adminInfo, setAdminInfo] = useState({
+      fullname: '',
+      email: '',
+      role: ''
+   });
+
+   // Load thông tin admin từ localStorage/sessionStorage
+   useEffect(() => {
+      const loadAdminInfo = () => {
+         const info = JSON.parse(
+            localStorage.getItem('adminInfo') || 
+            sessionStorage.getItem('adminInfo') || 
+            '{}'
+         );
+         setAdminInfo(info);
+      };
+
+      loadAdminInfo();
+
+      // Lắng nghe sự kiện cập nhật thông tin
+      window.addEventListener('adminInfoUpdated', loadAdminInfo);
+      
+      return () => {
+         window.removeEventListener('adminInfoUpdated', loadAdminInfo);
+      };
+   }, []);
    
    // Lọc menu items dựa trên role
    const filteredMenuItems = menuItems.filter(item => 
@@ -115,32 +143,54 @@ const Sidebar = ({ isDarkMode, toggleTheme, handleLogout }) => {
          </nav>
 
          {/* Phần cuối sidebar */}
-         <div className="absolute bottom-0 w-full p-4 border-t">
-            {/* Nút chuyển đổi theme sáng/tối */}
+         <div className="absolute bottom-0 w-full border-t">
+            {/* Thông tin tài khoản admin */}
             <button
-               onClick={toggleTheme}
-               className={`flex items-center w-full px-4 py-2 rounded-md ${isDarkMode
-                  ? 'hover:bg-gray-700 text-gray-300'
-                  : 'hover:bg-gray-100 text-gray-600'
-                  } transition-colors duration-200`}
+               onClick={onProfileClick}
+               className={`flex items-center w-full px-4 py-3 transition-colors duration-200 ${
+                  isDarkMode
+                     ? 'hover:bg-gray-700 text-gray-300 border-gray-700'
+                     : 'hover:bg-gray-100 text-gray-600 border-gray-200'
+               }`}
             >
-               {isDarkMode ? <FiSun className="text-xl" /> : <FiMoon className="text-xl" />}
-               <span className="ml-4">
-                  {isDarkMode ? 'Chế độ sáng' : 'Chế độ tối'}
-               </span>
+               <div className={`flex items-center justify-center w-10 h-10 rounded-full mr-3 ${
+                  isDarkMode ? 'bg-green-600' : 'bg-green-500'
+               }`}>
+                  <FiUser className="text-xl text-white" />
+               </div>
+               <div className="flex-1 text-left">
+                  <p className="text-sm font-semibold truncate">{adminInfo.fullname || 'Admin'}</p>
+                  <p className="text-xs opacity-75 truncate">{adminInfo.email || ''}</p>
+               </div>
             </button>
 
-            {/* Nút đăng xuất */}
-            <button
-               onClick={handleLogout}
-               className={`flex items-center w-full px-4 py-2 mt-2 rounded-md ${isDarkMode
-                  ? 'hover:bg-gray-700 text-gray-300'
-                  : 'hover:bg-gray-100 text-gray-600'
-                  } transition-colors duration-200`}
-            >
-               <FiLogOut className="text-xl" />
-               <span className="ml-4">Đăng xuất</span>
-            </button>
+            <div className="p-4 border-t">
+               {/* Nút chuyển đổi theme sáng/tối */}
+               <button
+                  onClick={toggleTheme}
+                  className={`flex items-center w-full px-4 py-2 rounded-md ${isDarkMode
+                     ? 'hover:bg-gray-700 text-gray-300'
+                     : 'hover:bg-gray-100 text-gray-600'
+                     } transition-colors duration-200`}
+               >
+                  {isDarkMode ? <FiSun className="text-xl" /> : <FiMoon className="text-xl" />}
+                  <span className="ml-4">
+                     {isDarkMode ? 'Chế độ sáng' : 'Chế độ tối'}
+                  </span>
+               </button>
+
+               {/* Nút đăng xuất */}
+               <button
+                  onClick={handleLogout}
+                  className={`flex items-center w-full px-4 py-2 mt-2 rounded-md ${isDarkMode
+                     ? 'hover:bg-gray-700 text-gray-300'
+                     : 'hover:bg-gray-100 text-gray-600'
+                     } transition-colors duration-200`}
+               >
+                  <FiLogOut className="text-xl" />
+                  <span className="ml-4">Đăng xuất</span>
+               </button>
+            </div>
          </div>
       </div>
    );

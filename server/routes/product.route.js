@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 //!ADMIN & PRODUCT MANAGER - UPLOAD ẢNH
-router.post('/admin/products/upload-images', 
+router.post('/upload-images', 
     authenticateProductManager, 
     upload.array('images'), 
     async (req, res) => {
@@ -50,20 +50,20 @@ router.post('/admin/products/upload-images',
 
 //!ADMIN - DASHBOARD
 router.get('/all-by-categories', ProductController.getAllProductsByCategories);
-//?CUSTOMER - HOMEPAGE
+
+//!ADMIN & PRODUCT MANAGER - PRODUCT MANAGEMENT (Phải đặt TRƯỚC các route customer)
+router.get('/admin', authenticateProductManager, ProductController.getProductsChoADMIN); // Lấy danh sách
+router.get('/admin/:id', authenticateProductManager, ProductController.getProductByIdChoADMIN); // Lấy chi tiết
+router.put('/admin/update/:id', authenticateProductManager, ProductController.updateProduct); // Cập nhật
+router.post('/admin/create', authenticateProductManager, ProductController.createProduct); // Tạo
+router.delete('/admin/delete/:id', authenticateProductManager, ProductController.deleteProduct); // Xóa
+router.patch('/admin/toggle/:id', authenticateProductManager, ProductController.toggleProductStatus); // Bật tắt vô hiệu hoá
+
+//?CUSTOMER - HOMEPAGE (Đặt SAU các route admin để tránh conflict)
 router.get('/', ProductController.getProducts);
 router.get('/basic', ProductController.getAllProductsBasicInfo);
 router.get('/gender', ProductController.getProductsByGender);
 router.get('/category/:categoryID', ProductController.getProductsByCategory);
 router.get('/:id', ProductController.getProductById);
-
-//!ADMIN & PRODUCT MANAGER - PRODUCT MANAGEMENT
-router.get('/admin/products', authenticateProductManager, ProductController.getProductsChoADMIN); // Lấy 
-router.get('/admin/products/:id', authenticateProductManager, ProductController.getProductByIdChoADMIN); // Lấy chi tiết
-router.put('/admin/products/update/:id', authenticateProductManager, ProductController.updateProduct); // Cập nhật
-//!ADMIN & PRODUCT MANAGER CALL THÊM /api/product-size-stock ĐỂ CHỈNH TỒN KHO
-router.post('/admin/products/create', authenticateProductManager, ProductController.createProduct); // Tạo
-router.delete('/admin/products/delete/:id', authenticateProductManager, ProductController.deleteProduct); // Xóa
-router.patch('/admin/products/toggle/:id', authenticateProductManager, ProductController.toggleProductStatus); // Bật tắt vô hiệu hoá
 
 module.exports = router;

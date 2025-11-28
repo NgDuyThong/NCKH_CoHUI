@@ -134,9 +134,12 @@ const ProductManagement = () => {
         try {
             setLoading(true);
 
+            // Thêm timestamp để tránh cache
+            const timestamp = new Date().getTime();
+
             // Gọi đồng thời cả 3 API
             const [productsResponse, categoriesResponse, targetsResponse] = await Promise.all([
-                axios.get('/api/admin/products/admin/products'),
+                axios.get(`/api/products/admin?_t=${timestamp}`),
                 axios.get('/api/categories'),
                 axios.get('/api/targets')
             ]);
@@ -144,6 +147,13 @@ const ProductManagement = () => {
             const { products, stats } = productsResponse.data;
             const categories = categoriesResponse.data;
             const targets = targetsResponse.data;
+
+            console.log('[ProductManagement] Nhận được', products.length, 'sản phẩm từ server');
+            console.log('[ProductManagement] Danh sách sản phẩm:', products.map(p => ({
+                name: p.name,
+                productID: p.productID,
+                _id: p._id
+            })));
 
             // Map categories và targets từ API riêng
             const uniqueCategories = categories.map(category => ({
@@ -280,10 +290,16 @@ const ProductManagement = () => {
     const totalPages = Math.ceil(displayedProducts.length / itemsPerPage);
 
     // Thêm hàm xử lý xem chi tiết
+    // Helper function để lấy ID từ product (ưu tiên productID, fallback sang _id)
+    const getProductId = (product) => {
+        return product.productID || product._id;
+    };
+
     const handleViewDetail = async (product) => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/admin/products/admin/products/${product.productID}`);
+            const productId = getProductId(product);
+            const response = await axios.get(`/api/products/admin/${productId}`);
             setProductDetail(response.data.product);
             setSelectedProduct(response.data.product);
             setIsDetailModalOpen(true);
@@ -334,8 +350,9 @@ const ProductManagement = () => {
             delete updatePayload.target;
 
             // Gửi request cập nhật sản phẩm
+            const productId = getProductId(editingProduct);
             const response = await axios.put(
-                `/api/admin/products/admin/products/update/${editingProduct.productID}`,
+                `/api/products/admin/update/${productId}`,
                 updatePayload
             );
 
@@ -360,7 +377,8 @@ const ProductManagement = () => {
     const handleViewColorAndSize = async (product) => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/admin/products/admin/products/${product.productID}`);
+            const productId = getProductId(product);
+            const response = await axios.get(`/api/products/admin/${productId}`);
             setColorSizeDetail(response.data.product);
             setSelectedProductForColorSize(response.data.product);
             setIsColorSizeModalOpen(true);
@@ -496,6 +514,8 @@ const ProductManagement = () => {
 
             setLoading(true);
 
+            const productId = getProductId(selectedProductForColorSize);
+
             // Tạo payload với đầy đủ thông tin cần thiết
             const payload = {
                 colorName: newColorData.colorName,
@@ -504,14 +524,14 @@ const ProductManagement = () => {
             };
 
             const response = await axios.post(
-                `/api/admin/product-colors/admin/product-colors/add/${selectedProductForColorSize.productID}`,
+                `/api/admin/product-colors/admin/product-colors/add/${productId}`,
                 payload
             );
 
             if (response.data) {
                 // Cập nhật lại thông tin màu và size
                 const updatedProduct = await axios.get(
-                    `/api/admin/products/admin/products/${selectedProductForColorSize.productID}`
+                    `/api/products/admin/${productId}`
                 );
                 setColorSizeDetail(updatedProduct.data.product);
                 setIsAddColorModalOpen(false);
@@ -545,6 +565,9 @@ const ProductManagement = () => {
             }
 
             setLoading(true);
+            
+            const productId = getProductId(selectedProductForColorSize);
+            
             const response = await axios.delete(
                 `/api/admin/product-colors/admin/product-colors/delete/${color.colorID}`
             );
@@ -552,7 +575,7 @@ const ProductManagement = () => {
             if (response.data) {
                 // Cập nhật lại thông tin màu và size
                 const updatedProduct = await axios.get(
-                    `/api/admin/products/admin/products/${selectedProductForColorSize.productID}`
+                    `/api/products/admin/${productId}`
                 );
                 setColorSizeDetail(updatedProduct.data.product);
                 toast.success('Xóa màu và hình ảnh thành công!');
@@ -572,17 +595,73 @@ const ProductManagement = () => {
         try {
             setLoading(true);
 
-            // Validate dữ liệu
-            if (!newProduct.name || !newProduct.price || !newProduct.description ||
-                !newProduct.thumbnail || !newProduct.categoryID || !newProduct.targetID) {
-                toast.error('Vui lòng điền đầy đủ thông tin sản phẩm!');
+            // Validate thông tin cơ bản
+            if (!newProduct.name || !newProduct.name.trim()) {
+                toast.error('Vui lòng nhập tên sản phẩm!');
+                setLoading(false);
                 return;
             }
 
-            // Validate colors
-            if (!newProduct.colors[0].colorName || newProduct.colors[0].images.length === 0) {
-                toast.error('Vui lòng thêm ít nhất một màu với hình ảnh!');
+            if (!newProduct.price || newProduct.price <= 0) {
+                toast.error('Vui lòng nhập giá hợp lệ!');
+                setLoading(false);
                 return;
+            }
+
+            if (!newProduct.description || !newProduct.description.trim()) {
+                toast.error('Vui lòng nhập mô tả sản phẩm!');
+                setLoading(false);
+                return;
+            }
+
+            if (!newProduct.thumbnail) {
+                toast.error('Vui lòng tải lên ảnh đại diện!');
+                setLoading(false);
+                return;
+            }
+
+            if (!newProduct.categoryID) {
+                toast.error('Vui lòng chọn danh mục!');
+                setLoading(false);
+                return;
+            }
+
+            if (!newProduct.targetID) {
+                toast.error('Vui lòng chọn đối tượng!');
+                setLoading(false);
+                return;
+            }
+
+            // Validate màu sắc
+            if (!newProduct.colors || newProduct.colors.length === 0) {
+                toast.error('Vui lòng thêm ít nhất một màu!');
+                setLoading(false);
+                return;
+            }
+
+            // Validate từng màu
+            for (let i = 0; i < newProduct.colors.length; i++) {
+                const color = newProduct.colors[i];
+                
+                if (!color.colorName || !color.colorName.trim()) {
+                    toast.error(`Vui lòng nhập tên màu ${i + 1}!`);
+                    setLoading(false);
+                    return;
+                }
+
+                if (!color.images || color.images.length === 0) {
+                    toast.error(`Vui lòng thêm ảnh cho màu ${color.colorName || (i + 1)}!`);
+                    setLoading(false);
+                    return;
+                }
+
+                // Kiểm tra ít nhất một size có stock > 0
+                const hasStock = color.sizes.some(size => parseInt(size.stock) > 0);
+                if (!hasStock) {
+                    toast.error(`Vui lòng nhập số lượng cho ít nhất một size của màu ${color.colorName}!`);
+                    setLoading(false);
+                    return;
+                }
             }
 
             // Tìm category và target từ danh sách có sẵn
@@ -597,28 +676,37 @@ const ProductManagement = () => {
             // Log để debug
             console.log('Selected Category:', selectedCategory);
             console.log('Selected Target:', selectedTarget);
+            console.log('New Product Data:', newProduct);
+
+            // Xử lý thumbnail - đảm bảo là string (publicId), không phải array
+            let thumbnailPublicId = newProduct.thumbnail;
+            if (Array.isArray(thumbnailPublicId)) {
+                thumbnailPublicId = thumbnailPublicId[0]; // Lấy phần tử đầu tiên nếu là array
+            }
 
             const processedPayload = {
-                name: newProduct.name,
-                price: newProduct.price,
-                description: newProduct.description,
-                thumbnail: newProduct.thumbnail,
-                categoryID: parseInt(selectedCategory.categoryID), // Đảm bảo là số
-                targetID: parseInt(selectedTarget.targetID), // Đảm bảo là số
+                name: newProduct.name.trim(),
+                price: parseInt(newProduct.price),
+                description: newProduct.description.trim(),
+                thumbnail: thumbnailPublicId,
+                categoryID: parseInt(selectedCategory.categoryID),
+                targetID: parseInt(selectedTarget.targetID),
                 colors: newProduct.colors.map(color => ({
-                    colorName: color.colorName,
-                    images: color.images,
-                    sizes: color.sizes.map(size => ({
-                        ...size,
-                        stock: parseInt(size.stock) // Đảm bảo stock là số
-                    }))
+                    colorName: color.colorName.trim(),
+                    images: color.images, // Đây phải là array các publicId
+                    sizes: color.sizes
+                        .filter(size => parseInt(size.stock) > 0) // Chỉ gửi size có stock > 0
+                        .map(size => ({
+                            size: size.size,
+                            stock: parseInt(size.stock)
+                        }))
                 }))
             };
 
             // Log payload cuối cùng để kiểm tra
             console.log('Final processed payload:', processedPayload);
 
-            const response = await axios.post('/api/admin/products/admin/products/create', processedPayload);
+            const response = await axios.post('/api/products/admin/create', processedPayload);
 
             if (response.data) {
                 toast.success('Tạo sản phẩm mới thành công!');
@@ -728,6 +816,21 @@ const ProductManagement = () => {
     // Thêm hàm xử lý xóa sản phẩm
     const handleDeleteProduct = async (product) => {
         try {
+            // Lấy ID từ product (ưu tiên productID, fallback _id)
+            const productId = getProductId(product);
+            
+            // Debug logs
+            console.log('Product to delete:', product);
+            console.log('Product ID:', product.productID);
+            console.log('Product _id:', product._id);
+            console.log('Final productId used:', productId);
+            
+            if (!productId) {
+                toast.error('Không tìm thấy ID sản phẩm. Vui lòng thử lại!');
+                console.error('Product object:', product);
+                return;
+            }
+
             // Hiển thị confirm dialog
             if (!window.confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${product.name}"? Hành động này không thể hoàn tác và sẽ xóa tất cả dữ liệu liên quan!`)) {
                 return;
@@ -735,15 +838,47 @@ const ProductManagement = () => {
 
             setLoading(true);
 
-            const response = await axios.delete(`/api/admin/products/admin/products/delete/${product.productID}`);
+            console.log('Deleting product with ID:', productId);
+            const response = await axios.delete(`/api/products/admin/delete/${productId}`);
 
             if (response.data) {
                 toast.success('Xóa sản phẩm thành công!');
-                await fetchProducts();
+                
+                // Xóa ngay lập tức khỏi state để UI cập nhật
+                const updatedProducts = allProducts.filter(p => getProductId(p) !== productId);
+                setAllProducts(updatedProducts);
+                setDisplayedProducts(updatedProducts);
+                
+                // Cập nhật stats
+                setStats(prev => ({
+                    ...prev,
+                    total: updatedProducts.length
+                }));
             }
         } catch (error) {
             console.error('Lỗi khi xóa sản phẩm:', error);
-            toast.error(error.response?.data?.message || 'Lỗi khi xóa sản phẩm');
+            console.error('Error response:', error.response);
+            
+            if (error.response?.status === 404) {
+                // Sản phẩm không tồn tại trong database - xóa khỏi state luôn
+                toast.warning('Sản phẩm không tồn tại trong database. Đang xóa khỏi danh sách...');
+                
+                const updatedProducts = allProducts.filter(p => getProductId(p) !== productId);
+                setAllProducts(updatedProducts);
+                setDisplayedProducts(updatedProducts);
+                
+                // Cập nhật stats
+                setStats(prev => ({
+                    ...prev,
+                    total: updatedProducts.length
+                }));
+                
+                console.log('Đã xóa sản phẩm "ma" khỏi giao diện');
+            } else if (error.response?.status === 400) {
+                toast.error('Không thể xóa sản phẩm đang có trong đơn hàng!');
+            } else {
+                toast.error(error.response?.data?.message || 'Lỗi khi xóa sản phẩm');
+            }
         } finally {
             setLoading(false);
         }
@@ -754,7 +889,8 @@ const ProductManagement = () => {
         try {
             setLoading(true);
 
-            const response = await axios.patch(`/api/admin/products/admin/products/toggle/${product.productID}`);
+            const productId = getProductId(product);
+            const response = await axios.patch(`/api/products/admin/toggle/${productId}`);
 
             if (response.data) {
                 toast.success(response.data.message);
@@ -991,7 +1127,7 @@ const ProductManagement = () => {
                                     </tr>
                                 ) : (
                                     currentProducts.map(product => (
-                                        <tr key={product.productID} className={`group transition-colors hover:${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                                        <tr key={getProductId(product)} className={`group transition-colors hover:${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <FiPackage className="w-5 h-5 text-green-500" />

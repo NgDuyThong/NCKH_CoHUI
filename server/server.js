@@ -59,6 +59,7 @@ const emailRoutes = require('./mail/email.route');
 
 // Import authentication middleware
 const { 
+    authenticateToken,
     authenticateAdmin, 
     authenticateCustomer,
     authenticateCustomerManager,
@@ -86,7 +87,7 @@ app.use('/api/address', authenticateCustomer, addressRoutes);// Quản lý đị
 app.use('/api/cart', authenticateCustomer, cartRoutes);// Quản lý giỏ hàng
 app.use('/api/favorite', authenticateCustomer, favoriteRoutes);// Quản lý yêu thích
 app.use('/api/order-detail', authenticateCustomer, orderDetailRoutes);// Quản lý chi tiết đơn hàng
-app.use('/api/user', authenticateCustomer, userRoutes);// Quản lý thông tin cá nhân
+app.use('/api/user', authenticateToken, userRoutes);// Quản lý thông tin cá nhân (cho cả customer và admin)
 app.use('/api/order', authenticateCustomer, orderRoutes);// Quản lý đơn hàng
 app.use('/api/target', targetRoutes);// Quản lý target
 app.use('/api/user-coupon', authenticateCustomer, userCouponRoutes);// Quản lý mã giảm giá
@@ -108,7 +109,7 @@ app.use('/api/user-notification', authenticateCustomer, userNotificationRoutes);
 app.use('/api/admin/users', authenticateCustomerManager, userRoutes);// Quản lý người dùng
 
 //? Trang Product Management - Chỉ admin và product_manager
-app.use('/api/admin/products', authenticateProductManager, productRoutes);// Quản lý sản phẩm
+app.use('/api/products', productRoutes);// Routes cho cả customer và admin
 app.use('/api/admin/product-size-stock', authenticateProductManager, productSizeStockRoutes);// Quản lý size và số lượng tồn
 app.use('/api/admin/product-colors', authenticateProductManager, productColorRoutes);// Quản lý màu sắc
 //!ADMIN CALL THÊM /api/categories cho bộ lọc sản phẩm
