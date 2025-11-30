@@ -2,1016 +2,681 @@
  * ===============================================
  * PDF GENERATOR UTILITIES - ICONDENIM
  * ===============================================
- * Tạo các loại PDF theo biểu mẫu chuẩn IconDenim:
- * 1. Phiếu Nhập Kho
- * 2. Hóa Đơn Bán Hàng
- * 3. Xác Nhận Đơn Hàng
- * 4. Biểu Mẫu Phản Hồi Khách Hàng
+ * Tạo các loại PDF theo biểu mẫu chuẩn IconDenim
+ * 
+ * QUAN TRỌNG: Xử lý tiếng Việt trong PDF
+ * - jsPDF mặc định KHÔNG hỗ trợ Unicode (Times, Helvetica, Courier)
+ * - Giải pháp: Loại bỏ dấu tiếng Việt cho TẤT CẢ text trong PDF
+ * - Chỉ giữ nguyên tiếng Việt trong data backend, khi xuất PDF thì bỏ dấu
  */
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// ===== FONT CONFIGURATION =====
-// Cấu hình font Unicode để hiển thị tiếng Việt
-const setupVietnameseFont = (doc) => {
-    // jsPDF sử dụng font mặc định hỗ trợ tiếng Việt kém
-    // Workaround: Sử dụng font Helvetica và encode UTF-8
-    doc.setFont('helvetica');
-};
-
-// ===== COMPANY INFO =====
-const COMPANY_INFO = {
-    name: 'ICONDENIM',
-    address: 'Địa chỉ cửa hàng',
-    phone: 'Số điện thoại',
-    email: 'email@icondenim.com',
-    website: 'www.icondenim.com'
-};
-
 // ===== HELPER FUNCTIONS =====
 
 /**
- * Chuyển tiếng Việt có dấu sang không dấu để tránh lỗi hiển thị PDF
+ * Loại bỏ dấu tiếng Việt - BẮT BUỘC cho tất cả text trong PDF
+ * jsPDF không hỗ trợ Unicode nên phải convert sang không dấu
  */
 const removeVietnameseTones = (str) => {
     if (!str) return '';
     str = str.toString();
-    str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    str = str.replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    
+    // Chữ thường
+    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+    str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+    str = str.replace(/đ/g, 'd');
+    
+    // Chữ hoa
+    str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, 'A');
+    str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, 'E');
+    str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, 'I');
+    str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, 'O');
+    str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, 'U');
+    str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, 'Y');
+    str = str.replace(/Đ/g, 'D');
+    
     return str;
 };
 
 /**
- * Format số tiền VND - chỉ hiển thị số
+ * Format số tiền VND
  */
 const formatCurrency = (amount) => {
     if (!amount || isNaN(amount)) return '0';
     return new Intl.NumberFormat('vi-VN').format(amount);
 };
 
+// ===== COMPANY INFO =====
+const COMPANY_INFO = {
+    name: 'ICONDENIM',
+    formCode: 'Mau so 01 - VT'
+};
+
+// ===== COMMON PDF FUNCTIONS =====
+
 /**
- * Format ngày tháng Việt Nam
+ * Vẽ header công ty chuẩn
  */
-const formatDate = (date) => {
-    const d = new Date(date);
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
+const drawCompanyHeader = (doc, pageWidth, options = {}) => {
+    const { 
+        showFormCode = false, 
+        fontSize = 16,
+        yPosition = 20 
+    } = options;
+    
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 51, 102);
+    doc.text(COMPANY_INFO.name, pageWidth / 2, yPosition, { align: 'center' });
+    
+    if (showFormCode) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(removeVietnameseTones(COMPANY_INFO.formCode), pageWidth - 15, yPosition, { align: 'right' });
+    }
 };
 
 /**
- * Thêm header với logo IconDenim
+ * Vẽ tiêu đề phiếu - BỎ DẤU tiếng Việt
  */
-const addHeader = (doc, title, formCode) => {
-    const pageWidth = doc.internal.pageSize.width;
-    
-    // Company name - right aligned
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(COMPANY_INFO.name, pageWidth - 15, 15, { align: 'right' });
-    
-    // Form info - left aligned
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Don vi:.....................', 15, 15);
-    doc.text('Bo phan:.....................', 15, 20);
-    
-    // Form code - right aligned
-    doc.text(`Mau so ${formCode}`, pageWidth - 15, 20, { align: 'right' });
-    
-    // Title - centered
+const drawTitle = (doc, title, pageWidth, yPosition) => {
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text(title, pageWidth / 2, 35, { align: 'center' });
-    
-    return 45; // Return Y position after header
+    doc.setTextColor(0, 51, 102);
+    doc.text(removeVietnameseTones(title), pageWidth / 2, yPosition, { align: 'center' });
 };
 
 /**
- * Thêm footer với chữ ký
+ * Vẽ chữ ký footer - BỎ DẤU tiếng Việt
  */
-const addFooter = (doc, yPos, signatories) => {
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
+const drawSignatures = (doc, signatures, pageWidth, yPosition) => {
+    const signatureWidth = (pageWidth - 30) / signatures.length;
     
-    // Đảm bảo footer ở cuối trang hoặc sau nội dung
-    let footerY = Math.max(yPos + 20, pageHeight - 60);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    
-    // Số chữ ký
-    const signatureCount = signatories.length;
-    const spacing = pageWidth / (signatureCount + 1);
-    
-    signatories.forEach((sig, index) => {
-        const xPos = spacing * (index + 1);
+    signatures.forEach((sig, index) => {
+        const xPos = 15 + (signatureWidth * index) + signatureWidth / 2;
         
-        // Tiêu đề chữ ký
-        doc.setFont('helvetica', 'bold');
-        doc.text(sig.title, xPos, footerY, { align: 'center' });
-        
-        // Subtitle (nếu có)
-        if (sig.subtitle) {
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'italic');
-            doc.text(sig.subtitle, xPos, footerY + 5, { align: 'center' });
-        }
-        
-        // Khoảng trống cho chữ ký
         doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('(Ky, ghi ro ho ten)', xPos, footerY + 15, { align: 'center' });
+        doc.setFont('helvetica', 'bold');
+        doc.text(removeVietnameseTones(sig.title), xPos, yPosition, { align: 'center' });
+        
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        let subYPos = yPosition + 5;
+        
+        if (sig.subtitle) {
+            doc.text(removeVietnameseTones(sig.subtitle), xPos, subYPos, { align: 'center' });
+            subYPos += 4;
+        }
+        if (sig.subtitle2) {
+            doc.text(removeVietnameseTones(sig.subtitle2), xPos, subYPos, { align: 'center' });
+            subYPos += 4;
+        }
+        if (sig.subtitle3) {
+            doc.text(removeVietnameseTones(sig.subtitle3), xPos, subYPos, { align: 'center' });
+        }
     });
 };
+
+/**
+ * Style mặc định cho bảng
+ */
+const getDefaultTableStyles = () => ({
+    theme: 'grid',
+    styles: {
+        font: 'helvetica',
+        fontSize: 9,
+        cellPadding: 4,
+        halign: 'center',
+        valign: 'middle',
+        lineWidth: 0.3,
+        lineColor: [0, 0, 0],
+        textColor: [0, 0, 0]
+    },
+    headStyles: {
+        fillColor: [240, 248, 255],
+        textColor: [0, 51, 102],
+        fontStyle: 'bold',
+        fontSize: 9,
+        lineWidth: 0.5,
+        lineColor: [0, 51, 102],
+        halign: 'center',
+        valign: 'middle'
+    },
+    bodyStyles: {
+        lineWidth: 0.3,
+        lineColor: [100, 100, 100],
+        textColor: [30, 30, 30],
+        fontStyle: 'normal'
+    }
+});
 
 // ===== PDF GENERATORS =====
 
 /**
- * 1. PHIẾU NHẬP KHO
- * Sử dụng trong Product Management khi nhập hàng
+ * PHIẾU NHẬP KHO - Theo mẫu biểu chuẩn IconDenim
  */
-export const generateInventoryImportPDF = (data) => {
+export const generateWarehouseReceiptPDF = (data) => {
     const doc = new jsPDF();
-    setupVietnameseFont(doc);
+    const pageWidth = doc.internal.pageSize.width;
     
-    // Header
-    let yPos = addHeader(doc, 'PHIEU NHAP KHO', '01 - VT');
+    // Sử dụng font helvetica - font mặc định của jsPDF
+    doc.setFont('helvetica', 'normal');
     
-    // Thông tin phiếu
+    // ===== HEADER - BÊN TRÁI =====
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 51, 102);
+    doc.text(COMPANY_INFO.name, 15, 18);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Don vi:....................', 15, 28);
+    doc.text('Bo phan:....................', 15, 34);
+    
+    // ===== HEADER - BÊN PHẢI =====
+    doc.setFontSize(9);
+    doc.text(removeVietnameseTones(COMPANY_INFO.formCode), pageWidth - 15, 18, { align: 'right' });
+    
+    // ===== TIÊU ĐỀ CHÍNH =====
+    drawTitle(doc, 'PHIEU NHAP KHO', pageWidth, 48);
+    
+    let yPos = 58;
+    
+    // ===== THÔNG TIN PHIẾU =====
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    
+    // Ngày tháng năm
+    const dateStr = `Ngay ${data.receiptDate?.day || '.....'} thang ${data.receiptDate?.month || '.....'} nam ${data.receiptDate?.year || '.....'}`;
+    doc.text(dateStr, 20, yPos);
+    yPos += 6;
+    
+    // Số phiếu và Nợ/Có
+    doc.text(`So: ${data.receiptNumber || '.................'}`, 20, yPos);
+    doc.text(`No: ${data.accounting?.debit || '.........'}`, pageWidth - 50, yPos - 6, { align: 'right' });
+    doc.text(`Co: ${data.accounting?.credit || '.........'}`, pageWidth - 50, yPos, { align: 'right' });
+    yPos += 6;
+    
+    // Họ và tên người giao
+    const supplierName = removeVietnameseTones(data.supplierName || '.................');
+    doc.text(`- Ho va ten nguoi giao: ${supplierName}`, 20, yPos);
+    yPos += 6;
+    
+    // Theo chứng từ
+    const refDateStr = data.referenceDocument?.day 
+        ? `ngay ${data.referenceDocument.day} thang ${data.referenceDocument.month} nam ${data.referenceDocument.year}`
+        : 'ngay ..... thang ..... nam .....';
+    doc.text(`- Theo ............ so ${data.referenceDocument?.number || '............'} ${refDateStr}`, 20, yPos);
+    yPos += 6;
+    const issuedBy = removeVietnameseTones(data.referenceDocument?.issuedBy || '.................');
+    doc.text(`  cua ${issuedBy}`, 20, yPos);
+    yPos += 6;
+    
+    // Nhập tại kho
+    const warehouseName = removeVietnameseTones(data.warehouse?.name || '.................');
+    const warehouseLocation = removeVietnameseTones(data.warehouse?.location || '.................');
+    doc.text(`Nhap tai kho: ${warehouseName} dia diem: ${warehouseLocation}`, 20, yPos);
     yPos += 10;
     
-    const today = new Date();
-    const dateStr = `Ngay ..... thang ..... nam ${today.getFullYear()}`;
-    doc.text(dateStr, 15, yPos);
-    yPos += 7;
-    
-    doc.text(`So: ${data.importNumber || '............................'}`, 15, yPos);
-    const pageWidth = doc.internal.pageSize.width;
-    doc.text(`No: ${data.debtorNumber || '..........'}`, pageWidth - 15, yPos - 7, { align: 'right' });
-    doc.text(`Co: ${data.creditorNumber || '..........'}`, pageWidth - 15, yPos, { align: 'right' });
-    yPos += 7;
-    
-    doc.text(`- Ho va ten nguoi giao: ${data.deliveryPerson || '............................'}`, 15, yPos);
-    yPos += 7;
-    
-    doc.text(`- Theo ............ so ........... ngay ..... thang ..... nam ..... cua ${data.issuer || '............................'}`, 15, yPos);
-    yPos += 7;
-    
-    doc.text(`Nhap tai kho: ${data.warehouseLocation || '............................da diem'}`, 15, yPos);
-    yPos += 10;
-    
-    // Bảng sản phẩm
-    const tableColumns = [
-        { header: 'STT', dataKey: 'stt' },
-        { header: 'Ten, nhan hieu, quy cach,\nphham chat va chat luong co, sp,\nhang hoa', dataKey: 'description' },
-        { header: 'Ma so', dataKey: 'code' },
-        { header: 'DVT', dataKey: 'unit' },
-        { header: 'So luong\n\nTheo chung tu', dataKey: 'qty_doc' },
-        { header: '\n\nThuc nhap', dataKey: 'qty_actual' },
-        { header: 'Don gia', dataKey: 'price' },
-        { header: 'Thanh tien', dataKey: 'total' }
-    ];
-    
-    const tableData = data.items.map((item, index) => ({
-        stt: index + 1,
-        description: item.productName,
-        code: item.productCode || '',
-        unit: item.unit || 'Cai',
-        qty_doc: item.quantity,
-        qty_actual: item.actualQuantity || item.quantity,
-        price: formatCurrency(item.price),
-        total: formatCurrency(item.total)
-    }));
-    
-    // Tính tổng số lượng và tổng tiền
-    const totalQtyDoc = data.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-    const totalQtyActual = data.items.reduce((sum, item) => sum + (item.actualQuantity || item.quantity || 0), 0);
-    const totalAmount = data.items.reduce((sum, item) => sum + (item.total || 0), 0);
-    
-    // Thêm dòng CỘNG - tổng cộng
-    tableData.push({
-        stt: '',
-        description: 'CONG',
-        code: '',
-        unit: '',
-        qty_doc: totalQtyDoc,
-        qty_actual: totalQtyActual,
-        price: '',
-        total: formatCurrency(totalAmount)
+    // ===== BẢNG HÀNG HÓA =====
+    const tableData = data.items.map((item, index) => {
+        // Tạo tên đầy đủ: tên - màu sắc - size (BỎ DẤU tiếng Việt)
+        let fullName = removeVietnameseTones(item.productName || '');
+        if (item.colorName) fullName += ' - Mau: ' + removeVietnameseTones(item.colorName);
+        if (item.size) fullName += ' - Size: ' + item.size;
+        
+        return [
+            index + 1,
+            fullName,
+            item.productCode || '',
+            item.unit || 'Cai',
+            item.documentQuantity || 0,
+            item.actualQuantity || 0,
+            formatCurrency(item.unitPrice || 0),
+            formatCurrency(item.totalAmount || 0)
+        ];
     });
     
+    // Thêm dòng CỘNG
+    const totalQuantity = data.items.reduce((sum, item) => sum + (item.actualQuantity || 0), 0);
+    const totalAmount = data.totalAmount || data.items.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
+    
+    tableData.push([
+        'x',
+        'CONG',
+        'x',
+        'x',
+        'x',
+        totalQuantity,
+        'x',
+        formatCurrency(totalAmount)
+    ]);
+    
+    const tableStyles = getDefaultTableStyles();
     autoTable(doc, {
         startY: yPos,
-        head: [tableColumns.map(col => col.header)],
-        body: tableData.map(row => tableColumns.map(col => row[col.dataKey])),
-        theme: 'grid',
-        styles: {
-            font: 'helvetica',
+        head: [[
+            'STT',
+            'Ten, mau sac, kich thuoc san pham',
+            'Ma so',
+            'DVT',
+            'Theo chung tu',
+            'Thuc nhap',
+            'Don gia',
+            'Thanh tien'
+        ]],
+        body: tableData,
+        ...tableStyles,
+        headStyles: {
+            ...tableStyles.headStyles,
             fontSize: 8,
             cellPadding: 3,
-            halign: 'center',
-            valign: 'middle',
-            lineWidth: 0.3,
-            lineColor: [0, 0, 0]
-        },
-        headStyles: {
-            fillColor: [240, 240, 240],
-            textColor: [0, 0, 0],
-            fontStyle: 'bold',
-            fontSize: 8,
-            lineWidth: 0.5,
-            lineColor: [0, 0, 0],
-            halign: 'center',
-            valign: 'middle'
-        },
-        bodyStyles: {
-            lineWidth: 0.3,
-            lineColor: [0, 0, 0]
+            minCellHeight: 12
         },
         columnStyles: {
-            0: { cellWidth: 12, halign: 'center' }, // STT
-            1: { cellWidth: 50, halign: 'left' }, // Tên
-            2: { cellWidth: 18, halign: 'center' }, // Mã số
-            3: { cellWidth: 12, halign: 'center' }, // ĐVT
-            4: { cellWidth: 18, halign: 'center' }, // Số lượng theo chứng từ
-            5: { cellWidth: 18, halign: 'center' }, // Thực nhập
-            6: { cellWidth: 28, halign: 'right' }, // Đơn giá
-            7: { cellWidth: 30, halign: 'right' } // Thành tiền
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 60, halign: 'left', fontStyle: 'bold' },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 13, halign: 'center' },
+            4: { cellWidth: 16, halign: 'center' },
+            5: { cellWidth: 16, halign: 'center' },
+            6: { cellWidth: 25, halign: 'right' },
+            7: { cellWidth: 26, halign: 'right' }
         },
-        didParseCell: function(data) {
-            // Dòng CỘNG (dòng cuối cùng)
-            if (data.row.index === tableData.length - 1) {
-                data.cell.styles.fontStyle = 'bold';
-                data.cell.styles.fillColor = [220, 220, 220];
-                data.cell.styles.fontSize = 9;
-                data.cell.styles.lineWidth = 0.5;
+        didParseCell: function(cellData) {
+            // Dòng CỘNG - làm nổi bật
+            if (cellData.row.index === tableData.length - 1) {
+                cellData.cell.styles.fontStyle = 'bold';
+                cellData.cell.styles.fillColor = [255, 250, 205];
+                cellData.cell.styles.textColor = [0, 51, 102];
+                cellData.cell.styles.fontSize = 10;
             }
         }
     });
     
     yPos = doc.lastAutoTable.finalY + 10;
     
-    // Thông tin thêm
-    doc.text(`- Tong so tien (viet bang chu): ${data.totalInWords || '............................'}`, 15, yPos);
-    yPos += 7;
-    doc.text(`- So chung tu goc kem theo: ${data.attachedDocuments || '............................'}`, 15, yPos);
-    yPos += 15;
+    // ===== THÔNG TIN THÊM =====
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const totalInWords = removeVietnameseTones(data.totalAmountInWords || '.................');
+    doc.text(`- Tong so tien (viet bang chu): ${totalInWords}`, 20, yPos);
+    yPos += 6;
+    doc.text(`- So chung tu goc kem theo: ${data.attachedDocuments || '.................'}`, 20, yPos);
+    yPos += 20;
     
-    // Footer với chữ ký
-    addFooter(doc, yPos, [
+    // ===== FOOTER - 4 CHỮ KÝ =====
+    const signatures = [
         { title: 'Nguoi lap phieu', subtitle: '(Ky, ho ten)' },
         { title: 'Nguoi giao hang', subtitle: '(Ky, ho ten)' },
         { title: 'Thu kho', subtitle: '(Ky, ho ten)' },
-        { title: 'Ke toan truong', subtitle: '(Hoac bo phan co nhu cau nhap)', subtitle2: '(Ky, ho ten)' }
-    ]);
+        { 
+            title: 'Ke toan truong', 
+            subtitle: '(Hoac bo phan co', 
+            subtitle2: 'nhu cau nhap)', 
+            subtitle3: '(Ky, ho ten)' 
+        }
+    ];
+    
+    drawSignatures(doc, signatures, pageWidth, yPos);
     
     // Lưu file
-    const fileName = `PhieuNhapKho_${data.importNumber || Date.now()}.pdf`;
+    const fileName = `PhieuNhapKho_${data.receiptNumber || Date.now()}.pdf`;
     doc.save(fileName);
     
     return fileName;
 };
 
+
 /**
- * 2. HÓA ĐƠN BÁN HÀNG
- * Sử dụng trong Order Management
+ * HÓA ĐƠN BÁN HÀNG
  */
 export const generateSalesInvoicePDF = (orderData) => {
     const doc = new jsPDF();
-    setupVietnameseFont(doc);
+    const pageWidth = doc.internal.pageSize.width;
     
     // Header
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    const pageWidth = doc.internal.pageSize.width;
-    doc.text(COMPANY_INFO.name, pageWidth / 2, 20, { align: 'center' });
+    drawCompanyHeader(doc, pageWidth);
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Dia chi: ${orderData.shopAddress || COMPANY_INFO.address}`, pageWidth / 2, 27, { align: 'center' });
-    doc.text(`DT: ${orderData.shopPhone || COMPANY_INFO.phone}`, pageWidth / 2, 32, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    doc.text('Dia chi: ' + (removeVietnameseTones(orderData.shopAddress) || '...'), pageWidth / 2, 27, { align: 'center' });
+    doc.text('DT: ' + (orderData.shopPhone || '...'), pageWidth / 2, 32, { align: 'center' });
     
     // Tiêu đề
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
     let yPos = 45;
-    doc.text('HOA DON BAN HANG', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 10;
+    drawTitle(doc, 'HOA DON BAN HANG', pageWidth, yPos);
+    yPos += 12;
     
     // Thông tin khách hàng
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Ten khach hang: ${removeVietnameseTones(orderData.customerName) || '............................'}`, 15, yPos);
-    yPos += 7;
-    doc.text(`Dia chi: ${removeVietnameseTones(orderData.customerAddress) || '............................'}`, 15, yPos);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Ten khach hang: ' + (removeVietnameseTones(orderData.customerName) || '...'), 15, yPos);
+    yPos += 6;
+    doc.text('Dia chi: ' + (removeVietnameseTones(orderData.customerAddress) || '...'), 15, yPos);
     yPos += 10;
     
     // Bảng sản phẩm
-    const tableColumns = [
-        { header: 'STT', dataKey: 'stt' },
-        { header: 'Ten hang hoa, quy cach, pham chat', dataKey: 'productName' },
-        { header: 'DVT', dataKey: 'unit' },
-        { header: 'So luong', dataKey: 'quantity' },
-        { header: 'Don gia', dataKey: 'price' },
-        { header: 'Thanh tien', dataKey: 'total' }
-    ];
-    
-    const tableData = orderData.items.map((item, index) => ({
-        stt: index + 1,
-        productName: `${removeVietnameseTones(item.productName)}${item.color ? `\nMau: ${removeVietnameseTones(item.color)}` : ''}${item.size ? ` - Size: ${item.size}` : ''}`,
-        unit: 'Cai',
-        quantity: item.quantity,
-        price: formatCurrency(item.price),
-        total: formatCurrency(item.price * item.quantity)
-    }));
-    
-    // Tính tổng tiền hàng (chưa giảm giá)
-    const subtotalAmount = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    // Dòng CỘNG - tổng tiền hàng
-    tableData.push({
-        stt: '',
-        productName: 'CONG',
-        unit: '',
-        quantity: orderData.items.reduce((sum, item) => sum + item.quantity, 0),
-        price: '',
-        total: formatCurrency(subtotalAmount)
+    const tableData = orderData.items.map((item, index) => {
+        let productInfo = removeVietnameseTones(item.productName);
+        if (item.color) productInfo += ' - ' + removeVietnameseTones(item.color);
+        if (item.size) productInfo += ' (' + item.size + ')';
+        
+        return [
+            index + 1,
+            productInfo,
+            'Cai',
+            item.quantity,
+            formatCurrency(item.price),
+            formatCurrency(item.price * item.quantity)
+        ];
     });
     
-    // Nếu có giảm giá, thêm dòng giảm giá
-    if (orderData.discount && orderData.discount > 0) {
-        tableData.push({
-            stt: '',
-            productName: 'Giam gia / Khuyen mai',
-            unit: '',
-            quantity: '',
-            price: '',
-            total: `-${formatCurrency(orderData.discount)}`
-        });
+    // Tổng tiền
+    const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const finalAmount = orderData.finalPrice || orderData.paymentPrice || subtotal;
+    
+    tableData.push(['', 'CONG', '', orderData.items.reduce((s, i) => s + i.quantity, 0), '', formatCurrency(subtotal)]);
+    if (orderData.discount > 0) {
+        tableData.push(['', 'Giam gia', '', '', '', '-' + formatCurrency(orderData.discount)]);
     }
+    tableData.push(['', 'TONG CONG', '', '', '', formatCurrency(finalAmount)]);
     
-    // Dòng TỔNG CỘNG THANH TOÁN
-    const finalAmount = orderData.finalPrice || orderData.paymentPrice || subtotalAmount;
-    tableData.push({
-        stt: '',
-        productName: 'TONG CONG THANH TOAN',
-        unit: '',
-        quantity: '',
-        price: '',
-        total: formatCurrency(finalAmount)
-    });
-    
+    const tableStyles = getDefaultTableStyles();
     autoTable(doc, {
         startY: yPos,
-        head: [tableColumns.map(col => col.header)],
-        body: tableData.map(row => tableColumns.map(col => row[col.dataKey])),
-        theme: 'grid',
-        styles: {
-            font: 'helvetica',
-            fontSize: 9,
-            cellPadding: 4,
-            halign: 'center',
-            valign: 'middle',
-            lineWidth: 0.3,
-            lineColor: [0, 0, 0]
-        },
-        headStyles: {
-            fillColor: [240, 240, 240],
-            textColor: [0, 0, 0],
-            fontStyle: 'bold',
-            fontSize: 9,
-            lineWidth: 0.5,
-            lineColor: [0, 0, 0],
-            halign: 'center',
-            valign: 'middle'
-        },
-        bodyStyles: {
-            lineWidth: 0.3,
-            lineColor: [0, 0, 0]
-        },
+        head: [['STT', 'Ten hang hoa', 'DVT', 'SL', 'Don gia', 'Thanh tien']],
+        body: tableData,
+        ...tableStyles,
         columnStyles: {
-            0: { cellWidth: 12, halign: 'center' }, // STT
-            1: { cellWidth: 70, halign: 'left' }, // Tên hàng
-            2: { cellWidth: 15, halign: 'center' }, // ĐVT
-            3: { cellWidth: 20, halign: 'center' }, // Số lượng
-            4: { cellWidth: 33, halign: 'right' }, // Đơn giá
-            5: { cellWidth: 35, halign: 'right' } // Thành tiền
+            0: { cellWidth: 12, halign: 'center' },
+            1: { cellWidth: 70, halign: 'left', fontStyle: 'bold' },
+            2: { cellWidth: 15, halign: 'center' },
+            3: { cellWidth: 18, halign: 'center' },
+            4: { cellWidth: 30, halign: 'right' },
+            5: { cellWidth: 35, halign: 'right' }
         },
-        didParseCell: function(data) {
-            const rowIndex = data.row.index;
-            const totalProductRows = orderData.items.length;
-            
-            // Dòng CỘNG
-            if (rowIndex === totalProductRows) {
-                data.cell.styles.fontStyle = 'bold';
-                data.cell.styles.fillColor = [250, 250, 250];
-                data.cell.styles.fontSize = 10;
-            }
-            
-            // Dòng giảm giá (nếu có)
-            if (orderData.discount > 0 && rowIndex === totalProductRows + 1) {
-                data.cell.styles.fontStyle = 'italic';
-                data.cell.styles.fillColor = [255, 255, 255];
-            }
-            
-            // Dòng TỔNG CỘNG THANH TOÁN (luôn là dòng cuối)
-            if (rowIndex === tableData.length - 1) {
-                data.cell.styles.fontStyle = 'bold';
-                data.cell.styles.fillColor = [220, 220, 220];
-                data.cell.styles.fontSize = 11;
-                data.cell.styles.lineWidth = 0.7;
+        didParseCell: function(cellData) {
+            const lastRows = orderData.discount > 0 ? 3 : 2;
+            if (cellData.row.index >= tableData.length - lastRows) {
+                cellData.cell.styles.fontStyle = 'bold';
+                if (cellData.row.index === tableData.length - 1) {
+                    cellData.cell.styles.fillColor = [255, 250, 205];
+                    cellData.cell.styles.textColor = [0, 51, 102];
+                    cellData.cell.styles.fontSize = 10;
+                }
             }
         }
     });
     
-    yPos = doc.lastAutoTable.finalY + 10;
-    
-    // Tổng tiền
-    doc.setFont('helvetica', 'italic');
-    doc.text(`Thanh tien (viet bang chu): ${orderData.totalInWords || '............................'}`, 15, yPos);
-    yPos += 10;
+    yPos = doc.lastAutoTable.finalY + 15;
     
     // Chữ ký
     const today = new Date();
-    const dateStr = `Ngay ${today.getDate()} thang ${today.getMonth() + 1} nam ${today.getFullYear()}`;
-    doc.text(dateStr, pageWidth - 15, yPos, { align: 'right' });
-    yPos += 7;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Ngay ${today.getDate()} thang ${today.getMonth() + 1} nam ${today.getFullYear()}`, pageWidth - 15, yPos, { align: 'right' });
+    yPos += 10;
     
-    addFooter(doc, yPos, [
-        { title: 'KHACH HANG', subtitle: '' },
-        { title: 'NGUOI BAN HANG', subtitle: '' }
-    ]);
+    const signatures = [
+        { title: 'KHACH HANG' },
+        { title: 'NGUOI BAN HANG' }
+    ];
+    drawSignatures(doc, signatures, pageWidth, yPos);
     
     // Lưu file
     const fileName = `HoaDon_${orderData.orderID || Date.now()}.pdf`;
     doc.save(fileName);
-    
     return fileName;
 };
 
+
 /**
- * 2B. HÓA ĐƠN BÁN HÀNG THEO NGÀY
- * Xuất tất cả đơn hàng trong 1 ngày
+ * HÓA ĐƠN BÁN HÀNG THEO NGÀY
  */
 export const generateDailyInvoicePDF = (dailyData) => {
     const doc = new jsPDF();
-    setupVietnameseFont(doc);
-    
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     
     // Header
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(COMPANY_INFO.name, pageWidth / 2, 20, { align: 'center' });
+    drawCompanyHeader(doc, pageWidth);
     
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Dia chi: ${dailyData.shopAddress || COMPANY_INFO.address}`, pageWidth / 2, 27, { align: 'center' });
-    doc.text(`DT: ${dailyData.shopPhone || COMPANY_INFO.phone}`, pageWidth / 2, 32, { align: 'center' });
+    let yPos = 35;
+    drawTitle(doc, 'HOA DON BAN HANG', pageWidth, yPos);
+    yPos += 8;
     
-    // Tiêu đề
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    let yPos = 45;
-    doc.text('HOA DON BAN HANG', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 7;
-    
-    // Ngày xuất hóa đơn
     const invoiceDate = new Date(dailyData.date);
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
     doc.text(`Ngay: ${invoiceDate.getDate()}/${invoiceDate.getMonth() + 1}/${invoiceDate.getFullYear()}`, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 10;
+    yPos += 12;
     
-    // Tổng hợp theo từng đơn hàng
     let grandTotal = 0;
-    let orderCount = 0;
     
-    dailyData.orders.forEach((orderData, orderIndex) => {
-        // Kiểm tra xem có đủ không gian không, nếu không thì thêm trang mới
+    dailyData.orders.forEach((orderData) => {
         if (yPos > pageHeight - 80) {
             doc.addPage();
             yPos = 20;
         }
         
-        orderCount++;
-        
-        // Thông tin đơn hàng
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.text(`Don hang #${orderData.orderID}`, 15, yPos);
-        yPos += 7;
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Khach hang: ${removeVietnameseTones(orderData.customerName) || 'N/A'}`, 15, yPos);
         yPos += 5;
-        doc.text(`Dia chi: ${removeVietnameseTones(orderData.customerAddress) || 'N/A'}`, 15, yPos);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`KH: ${removeVietnameseTones(orderData.customerName) || 'N/A'}`, 15, yPos);
         yPos += 7;
         
-        // Bảng sản phẩm cho đơn hàng này
-        const tableColumns = [
-            { header: 'STT', dataKey: 'stt' },
-            { header: 'Ten hang hoa', dataKey: 'productName' },
-            { header: 'DVT', dataKey: 'unit' },
-            { header: 'SL', dataKey: 'quantity' },
-            { header: 'Don gia', dataKey: 'price' },
-            { header: 'Thanh tien', dataKey: 'total' }
-        ];
+        const tableData = orderData.items.map((item, index) => [
+            index + 1,
+            removeVietnameseTones(item.productName) + (item.color ? ' - ' + removeVietnameseTones(item.color) : '') + (item.size ? ' (' + item.size + ')' : ''),
+            item.quantity,
+            formatCurrency(item.price),
+            formatCurrency(item.price * item.quantity)
+        ]);
         
-        const tableData = orderData.items.map((item, index) => ({
-            stt: index + 1,
-            productName: `${removeVietnameseTones(item.productName)}${item.color ? ` - ${removeVietnameseTones(item.color)}` : ''}${item.size ? ` (${item.size})` : ''}`,
-            unit: 'Cai',
-            quantity: item.quantity,
-            price: formatCurrency(item.price),
-            total: formatCurrency(item.price * item.quantity)
-        }));
+        const orderTotal = orderData.finalPrice || orderData.items.reduce((s, i) => s + i.price * i.quantity, 0);
+        tableData.push(['', 'TONG', '', '', formatCurrency(orderTotal)]);
+        grandTotal += orderTotal;
         
-        // Tính tổng tiền hàng (chưa giảm giá)
-        const orderSubtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        
-        // Dòng CỘNG
-        tableData.push({
-            stt: '',
-            productName: 'CONG',
-            unit: '',
-            quantity: orderData.items.reduce((sum, item) => sum + item.quantity, 0),
-            price: '',
-            total: formatCurrency(orderSubtotal)
-        });
-        
-        // Nếu có giảm giá, thêm dòng giảm giá
-        if (orderData.discount && orderData.discount > 0) {
-            tableData.push({
-                stt: '',
-                productName: 'Giam gia / Khuyen mai',
-                unit: '',
-                quantity: '',
-                price: '',
-                total: `-${formatCurrency(orderData.discount)}`
-            });
-        }
-        
-        // Dòng TỔNG CỘNG
-        const finalOrderTotal = orderData.finalPrice || orderData.totalPrice || orderSubtotal;
-        tableData.push({
-            stt: '',
-            productName: 'TONG CONG',
-            unit: '',
-            quantity: '',
-            price: '',
-            total: formatCurrency(finalOrderTotal)
-        });
-        
-        // Cộng vào tổng lớn (dùng giá sau giảm)
-        grandTotal += finalOrderTotal;
-        
+        const tableStyles = getDefaultTableStyles();
         autoTable(doc, {
             startY: yPos,
-            head: [tableColumns.map(col => col.header)],
-            body: tableData.map(row => tableColumns.map(col => row[col.dataKey])),
-            theme: 'grid',
-            styles: {
-                font: 'helvetica',
-                fontSize: 8,
-                cellPadding: 3,
-                halign: 'center',
-                valign: 'middle',
-                lineWidth: 0.2,
-                lineColor: [0, 0, 0]
-            },
-            headStyles: {
-                fillColor: [235, 235, 235],
-                textColor: [0, 0, 0],
-                fontStyle: 'bold',
-                fontSize: 8,
-                lineWidth: 0.4,
-                lineColor: [0, 0, 0],
-                halign: 'center'
-            },
-            bodyStyles: {
-                lineWidth: 0.2,
-                lineColor: [0, 0, 0]
-            },
+            head: [['STT', 'San pham', 'SL', 'Don gia', 'Thanh tien']],
+            body: tableData,
+            ...tableStyles,
+            styles: { ...tableStyles.styles, fontSize: 8, cellPadding: 3 },
             columnStyles: {
-                0: { cellWidth: 10, halign: 'center' }, // STT
-                1: { cellWidth: 70, halign: 'left' }, // Tên hàng
-                2: { cellWidth: 12, halign: 'center' }, // ĐVT
-                3: { cellWidth: 15, halign: 'center' }, // SL
-                4: { cellWidth: 35, halign: 'right' }, // Đơn giá
-                5: { cellWidth: 38, halign: 'right' } // Thành tiền
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 80, halign: 'left' },
+                2: { cellWidth: 15, halign: 'center' },
+                3: { cellWidth: 30, halign: 'right' },
+                4: { cellWidth: 35, halign: 'right' }
             },
-            didParseCell: function(data) {
-                const rowIndex = data.row.index;
-                const totalProductRows = orderData.items.length;
-                
-                // Dòng CỘNG
-                if (rowIndex === totalProductRows) {
-                    data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.fillColor = [250, 250, 250];
-                    data.cell.styles.fontSize = 9;
-                }
-                
-                // Dòng giảm giá (nếu có)
-                if (orderData.discount > 0 && rowIndex === totalProductRows + 1) {
-                    data.cell.styles.fontStyle = 'italic';
-                    data.cell.styles.fillColor = [255, 255, 255];
-                }
-                
-                // Dòng TỔNG CỘNG (luôn là dòng cuối)
-                if (rowIndex === tableData.length - 1) {
-                    data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.fillColor = [220, 220, 220];
-                    data.cell.styles.fontSize = 9;
-                    data.cell.styles.lineWidth = 0.5;
+            didParseCell: function(cellData) {
+                if (cellData.row.index === tableData.length - 1) {
+                    cellData.cell.styles.fontStyle = 'bold';
+                    cellData.cell.styles.fillColor = [255, 250, 205];
                 }
             }
         });
         
-        yPos = doc.lastAutoTable.finalY + 8;
+        yPos = doc.lastAutoTable.finalY + 10;
     });
     
-    // Tổng kết cuối ngày
-    if (yPos > pageHeight - 50) {
-        doc.addPage();
-        yPos = 20;
-    }
-    
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.5);
-    doc.line(15, yPos, pageWidth - 15, yPos);
-    yPos += 8;
-    
+    // Tổng cộng tất cả đơn hàng
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('TONG KET NGAY:', 15, yPos);
-    yPos += 7;
+    doc.setTextColor(0, 51, 102);
+    doc.text(`TONG CONG: ${formatCurrency(grandTotal)} VND`, pageWidth - 15, yPos, { align: 'right' });
     
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Tong so don hang: ${orderCount}`, 15, yPos);
-    yPos += 6;
-    doc.text(`Tong doanh thu: ${formatCurrency(grandTotal)}`, 15, yPos);
-    yPos += 10;
-    
-    // Chữ ký
-    const today = new Date();
-    const dateStr = `Ngay ${today.getDate()} thang ${today.getMonth() + 1} nam ${today.getFullYear()}`;
-    doc.text(dateStr, pageWidth - 15, yPos, { align: 'right' });
-    yPos += 10;
-    
-    addFooter(doc, yPos, [
-        { title: 'NGUOI LAP', subtitle: '(Ky, ghi ro ho ten)' },
-        { title: 'KE TOAN', subtitle: '(Ky, ghi ro ho ten)' },
-        { title: 'GIAM DOC', subtitle: '(Ky, ghi ro ho ten)' }
-    ]);
-    
-    // Lưu file
-    const fileName = `HoaDon_Ngay_${invoiceDate.getDate()}-${invoiceDate.getMonth() + 1}-${invoiceDate.getFullYear()}.pdf`;
+    const fileName = `HoaDonNgay_${dailyData.date || Date.now()}.pdf`;
     doc.save(fileName);
-    
     return fileName;
 };
 
 /**
- * 3. XÁC NHẬN ĐƠN HÀNG
- * Sử dụng trong Order Management
+ * PHIẾU NHẬP KHO CŨ (giữ lại để tương thích)
  */
-export const generateOrderConfirmationPDF = (orderData) => {
-    const doc = new jsPDF();
-    setupVietnameseFont(doc);
-    
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
-    let yPos = 20;
-    
-    // ===== HEADER: Logo =====
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ICONDENIM', 15, yPos);
-    yPos += 15;
-    
-    // ===== TIÊU ĐỀ CHÍNH =====
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('XAC NHAN DON HANG', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 15;
-    
-    // ===== THÔNG TIN 2 CỘT =====
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    
-    const leftColX = 15;
-    const rightColX = pageWidth - 15;
-    
-    // Dòng 1
-    doc.text(`Ma don hang: ${removeVietnameseTones(orderData.orderID || '')}`, leftColX, yPos);
-    doc.text(`Ben Mua: ${removeVietnameseTones(orderData.customerName || '')}`, rightColX, yPos, { align: 'right' });
-    yPos += 5;
-    
-    // Dòng 2
-    doc.text(`Ben Ban: Icondenim`, leftColX, yPos);
-    doc.text(`SDT dat hang:`, rightColX, yPos, { align: 'right' });
-    yPos += 5;
-    
-    // Dòng 3
-    doc.text(`Ma so thue: 0123456789`, leftColX, yPos);
-    const addressLines = doc.splitTextToSize(`Dia chi giao hang: ${removeVietnameseTones(orderData.customerAddress || '')}`, 80);
-    doc.text(addressLines, rightColX, yPos, { align: 'right' });
-    yPos += 5 * Math.max(1, addressLines.length);
-    
-    // Dòng 4
-    const createdDate = orderData.createdAt ? new Date(orderData.createdAt) : new Date();
-    doc.text(`Ngay xuat don: ${createdDate.toLocaleDateString('vi-VN')}`, leftColX, yPos);
-    yPos += 5;
-    
-    // Dòng 5
-    doc.text(`Ngay nhan hang: 7 ngay lam viec ke tu ngay bat mua dat coc`, leftColX, yPos);
-    yPos += 10;
-    
-    // ===== BẢNG SẢN PHẨM =====
-    const tableColumns = [
-        { header: 'STT', dataKey: 'stt' },
-        { header: 'San pham', dataKey: 'product' },
-        { header: 'DVT', dataKey: 'unit' },
-        { header: 'So luong', dataKey: 'quantity' },
-        { header: 'Don gia(chua VAT) (dong)', dataKey: 'price' },
-        { header: 'Thanh tien (dong)', dataKey: 'total' }
-    ];
-    
-    // Tạo dữ liệu bảng chính
-    const tableData = orderData.items.map((item, index) => {
-        const productName = removeVietnameseTones(item.productName || '');
-        const color = item.color ? removeVietnameseTones(item.color) : '';
-        const size = item.size || '';
-        const fullName = `${productName}${color ? ' - ' + color : ''}${size ? ' (' + size + ')' : ''}`;
-        
-        return {
-            stt: index + 1,
-            product: fullName,
-            unit: '',
-            quantity: item.quantity,
-            price: formatCurrency(item.price),
-            total: formatCurrency(item.price * item.quantity)
-        };
+export const generateInventoryImportPDF = (data) => {
+    return generateWarehouseReceiptPDF({
+        receiptNumber: data.importNumber,
+        receiptDate: { day: new Date().getDate(), month: new Date().getMonth() + 1, year: new Date().getFullYear() },
+        supplierName: data.deliveryPerson,
+        warehouse: { name: data.warehouseLocation },
+        items: data.items.map(item => ({
+            productName: item.productName,
+            productCode: item.productCode,
+            unit: item.unit,
+            documentQuantity: item.quantity,
+            actualQuantity: item.actualQuantity || item.quantity,
+            unitPrice: item.price,
+            totalAmount: item.total
+        })),
+        totalAmountInWords: data.totalInWords,
+        attachedDocuments: data.attachedDocuments
     });
-    
-    // Thêm một dòng trống cho giao diện đẹp
-    tableData.push({
-        stt: '',
-        product: '',
-        unit: '',
-        quantity: '',
-        price: '',
-        total: ''
-    });
-    
-    autoTable(doc, {
-        startY: yPos,
-        head: [tableColumns.map(col => col.header)],
-        body: tableData.map(row => tableColumns.map(col => row[col.dataKey])),
-        theme: 'grid',
-        styles: {
-            font: 'helvetica',
-            fontSize: 9,
-            cellPadding: 2,
-            halign: 'center',
-            valign: 'middle',
-            lineWidth: 0.3,
-            lineColor: [0, 0, 0]
-        },
-        headStyles: {
-            fillColor: [255, 255, 255],
-            textColor: [0, 0, 0],
-            fontStyle: 'bold',
-            lineWidth: 0.3,
-            lineColor: [0, 0, 0],
-            halign: 'center'
-        },
-        bodyStyles: {
-            fillColor: [255, 255, 255],
-            textColor: [0, 0, 0],
-            lineWidth: 0.3,
-            lineColor: [0, 0, 0]
-        },
-        columnStyles: {
-            0: { cellWidth: 20, halign: 'center' },
-            1: { cellWidth: 60, halign: 'left' },
-            2: { cellWidth: 20, halign: 'center' },
-            3: { cellWidth: 22, halign: 'center' },
-            4: { cellWidth: 35, halign: 'right' },
-            5: { cellWidth: 35, halign: 'right' }
-        }
-    });
-    
-    yPos = doc.lastAutoTable.finalY + 8;
-    
-    // ===== PHẦN TỔNG TIỀN =====
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    
-    const summaryX = 15;
-    const summaryValueX = pageWidth - 30;
-    
-    // Tính toán tổng tiền hàng (chưa giảm giá)
-    const totalBeforeDiscount = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    // VAT 10%
-    const vatAmount = Math.round(totalBeforeDiscount * 0.1);
-    doc.text(`VAT (10%)`, summaryX, yPos);
-    yPos += 5;
-    
-    // Tổng tiền (sau khuyến mãi sản phẩm nhưng chưa voucher)
-    const totalAfterPromotion = orderData.totalPrice || totalBeforeDiscount;
-    doc.text(`Tong tien`, summaryX, yPos);
-    doc.text(formatCurrency(totalAfterPromotion), summaryValueX, yPos, { align: 'right' });
-    yPos += 5;
-    
-    // Giảm giá (voucher)
-    const discount = orderData.discount || 0;
-    if (discount > 0) {
-        doc.text(`Giam gia (Voucher)`, summaryX, yPos);
-        doc.text(`-${formatCurrency(discount)}`, summaryValueX, yPos, { align: 'right' });
-        yPos += 5;
-    }
-    
-    // Đặt cọc
-    doc.text(`Dat coc`, summaryX, yPos);
-    yPos += 5;
-    
-    // Thanh toán khi giao hàng (tổng cuối cùng)
-    const finalTotal = orderData.finalPrice || totalAfterPromotion;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Thanh toan khi giao hang`, summaryX, yPos);
-    doc.text(formatCurrency(finalTotal), summaryValueX, yPos, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    yPos += 20;
-    
-    // ===== CHỮ KÝ =====
-    const signatureY = yPos;
-    const leftSignX = 60;
-    const rightSignX = pageWidth - 60;
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('BEN BAN', leftSignX, signatureY, { align: 'center' });
-    doc.text('BEN MUA', rightSignX, signatureY, { align: 'center' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text('(ky, ghi ro ho ten)', leftSignX, signatureY + 5, { align: 'center' });
-    doc.text('(ky, ghi ro ho ten)', rightSignX, signatureY + 5, { align: 'center' });
-    
-    // Lưu file
-    const fileName = `XacNhanDonHang_${orderData.orderID || Date.now()}.pdf`;
-    doc.save(fileName);
-    
-    return fileName;
 };
 
+
 /**
- * 4. BIỂU MẪU PHẢN HỒI KHÁCH HÀNG
- * Sử dụng trong Customer Management
+ * BIỂU MẪU PHẢN HỒI KHÁCH HÀNG
  */
-export const generateCustomerFeedbackPDF = (customerData) => {
+export const generateCustomerFeedbackPDF = (feedbackData) => {
     const doc = new jsPDF();
-    setupVietnameseFont(doc);
-    
-    // Header với logo
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
     const pageWidth = doc.internal.pageSize.width;
     
-    let yPos = 20;
-    doc.text(COMPANY_INFO.name, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 10;
+    // Header
+    drawCompanyHeader(doc, pageWidth);
     
-    // Tiêu đề
-    doc.setFontSize(14);
-    doc.text('BIEU MAU GHI NHAN PHAN HOI KHACH HANG', pageWidth / 2, yPos, { align: 'center' });
+    let yPos = 35;
+    drawTitle(doc, 'BIEU MAU PHAN HOI KHACH HANG', pageWidth, yPos);
     yPos += 15;
     
-    // Phần I: Thông tin khách hàng
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('I. THONG TIN KHACH HANG', 15, yPos);
-    yPos += 7;
-    
+    // Thông tin khách hàng
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Ho va ten: ${customerData.fullname || ''}`, 15, yPos);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Ten khach hang: ' + (removeVietnameseTones(feedbackData.customerName) || '...'), 15, yPos);
     yPos += 7;
-    doc.text(`So dien thoai: ${customerData.phone || ''}`, 15, yPos);
+    doc.text('Email: ' + (feedbackData.email || '...'), 15, yPos);
     yPos += 7;
-    doc.text(`Email: ${customerData.email || ''}`, 15, yPos);
-    yPos += 7;
-    doc.text(`Dia chi: ${customerData.address || ''}`, 15, yPos);
-    yPos += 7;
-    doc.text(`Ngay phan hoi: ${formatDate(customerData.feedbackDate || new Date())}`, 15, yPos);
-    yPos += 12;
+    doc.text('So dien thoai: ' + (feedbackData.phone || '...'), 15, yPos);
+    yPos += 10;
     
-    // Phần II: Nội dung phản hồi
-    doc.setFontSize(11);
+    // Nội dung phản hồi
     doc.setFont('helvetica', 'bold');
-    doc.text('II. NOI DUNG PHAN HOI CUA KHACH HANG', 15, yPos);
-    yPos += 7;
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
     doc.text('Noi dung phan hoi:', 15, yPos);
     yPos += 7;
     
-    // Box cho nội dung phản hồi
-    const boxHeight = 40;
-    doc.rect(15, yPos, pageWidth - 30, boxHeight);
+    doc.setFont('helvetica', 'normal');
+    const feedbackText = removeVietnameseTones(feedbackData.feedback || 'Khong co noi dung');
+    const splitText = doc.splitTextToSize(feedbackText, pageWidth - 30);
+    doc.text(splitText, 15, yPos);
+    yPos += splitText.length * 7 + 10;
     
-    // Split feedback text để fit trong box
-    if (customerData.feedback) {
-        const splitText = doc.splitTextToSize(customerData.feedback, pageWidth - 40);
-        doc.text(splitText, 20, yPos + 5);
+    // Đánh giá
+    if (feedbackData.rating) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Danh gia: ' + feedbackData.rating + '/5 sao', 15, yPos);
+        yPos += 10;
     }
     
-    yPos += boxHeight + 12;
-    
-    // Phần III: Phương án xử lý
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('III. PHUONG AN XU LY CUA NHAN VIEN/SHOP', 15, yPos);
-    yPos += 7;
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Phuong an xu ly:', 15, yPos);
-    yPos += 7;
-    
-    // Box cho phương án xử lý
-    doc.rect(15, yPos, pageWidth - 30, boxHeight);
-    
-    if (customerData.resolution) {
-        const splitText = doc.splitTextToSize(customerData.resolution, pageWidth - 40);
-        doc.text(splitText, 20, yPos + 5);
-    }
-    
-    yPos += boxHeight + 12;
-    
-    // Phần IV: Đánh giá
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('IV. DANH GIA SAU XU LY CUA KHACH HANG', 15, yPos);
-    yPos += 7;
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Muc do hai long: Danh X', 15, yPos);
-    yPos += 7;
-    
-    // Rating boxes
-    const ratings = ['Rat hai long', 'Hai long', 'Binh thuong', 'Khong hai long'];
-    const boxSize = 5;
-    const startX = 15;
-    const spacing = 45;
-    
-    ratings.forEach((rating, index) => {
-        const xPos = startX + (index * spacing);
-        doc.rect(xPos, yPos, boxSize, boxSize); // Checkbox
-        doc.text(rating, xPos + boxSize + 3, yPos + 4);
-        
-        // Đánh dấu nếu có rating
-        if (customerData.rating && customerData.rating === rating) {
-            doc.text('X', xPos + 1, yPos + 4);
-        }
-    });
-    
-    yPos += 15;
-    
-    // Chữ ký
-    addFooter(doc, yPos, [
-        { title: 'Nguoi ghi nhan', subtitle: '(Ky, ghi ro ho ten)' },
-        { title: 'Khach hang', subtitle: '(Ky, ghi ro ho ten)' }
-    ]);
+    // Ngày gửi
+    const today = new Date();
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.text(`Ngay gui: ${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`, 15, yPos);
     
     // Lưu file
-    const fileName = `PhanHoiKhachHang_${customerData.userID || Date.now()}.pdf`;
+    const fileName = `PhanHoi_${feedbackData.customerName || Date.now()}.pdf`;
     doc.save(fileName);
-    
     return fileName;
 };
 
+
 /**
- * ===== EXPORT ALL FUNCTIONS =====
+ * XÁC NHẬN ĐƠN HÀNG
  */
-export default {
-    generateInventoryImportPDF,
-    generateSalesInvoicePDF,
-    generateOrderConfirmationPDF,
-    generateCustomerFeedbackPDF,
-    formatCurrency,
-    formatDate
+export const generateOrderConfirmationPDF = (orderData) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    
+    // Header
+    drawCompanyHeader(doc, pageWidth);
+    
+    let yPos = 35;
+    drawTitle(doc, 'XAC NHAN DON HANG', pageWidth, yPos);
+    yPos += 15;
+    
+    // Thông tin đơn hàng
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Ma don hang: ' + (orderData.orderID || '...'), 15, yPos);
+    yPos += 7;
+    doc.text('Khach hang: ' + (removeVietnameseTones(orderData.customerName) || '...'), 15, yPos);
+    yPos += 7;
+    doc.text('Dia chi: ' + (removeVietnameseTones(orderData.shippingAddress) || '...'), 15, yPos);
+    yPos += 7;
+    doc.text('So dien thoai: ' + (orderData.phone || '...'), 15, yPos);
+    yPos += 10;
+    
+    // Bảng sản phẩm
+    const tableData = orderData.items.map((item, index) => [
+        index + 1,
+        removeVietnameseTones(item.productName) + (item.color ? ' - ' + removeVietnameseTones(item.color) : '') + (item.size ? ' (' + item.size + ')' : ''),
+        item.quantity,
+        formatCurrency(item.price),
+        formatCurrency(item.price * item.quantity)
+    ]);
+    
+    const total = orderData.totalPrice || orderData.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    tableData.push(['', 'TONG CONG', '', '', formatCurrency(total)]);
+    
+    const tableStyles = getDefaultTableStyles();
+    autoTable(doc, {
+        startY: yPos,
+        head: [['STT', 'San pham', 'SL', 'Don gia', 'Thanh tien']],
+        body: tableData,
+        ...tableStyles,
+        columnStyles: {
+            0: { cellWidth: 12, halign: 'center' },
+            1: { cellWidth: 80, halign: 'left' },
+            2: { cellWidth: 15, halign: 'center' },
+            3: { cellWidth: 30, halign: 'right' },
+            4: { cellWidth: 33, halign: 'right' }
+        },
+        didParseCell: function(cellData) {
+            if (cellData.row.index === tableData.length - 1) {
+                cellData.cell.styles.fontStyle = 'bold';
+                cellData.cell.styles.fillColor = [255, 250, 205];
+                cellData.cell.styles.textColor = [0, 51, 102];
+            }
+        }
+    });
+    
+    yPos = doc.lastAutoTable.finalY + 15;
+    
+    // Lời cảm ơn
+    doc.setFont('helvetica', 'italic');
+    doc.text('Cam on quy khach da dat hang tai ICONDENIM!', pageWidth / 2, yPos, { align: 'center' });
+    
+    const fileName = `XacNhanDonHang_${orderData.orderID || Date.now()}.pdf`;
+    doc.save(fileName);
+    return fileName;
 };

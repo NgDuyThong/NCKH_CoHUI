@@ -15,7 +15,8 @@ const productSizeStockSchema = new Schema({
         validate: {
             validator: function(v) {
                 // Kiểm tra định dạng SKU: productID_colorID_size_sizeStockID
-                return /^\d+_\d+_[A-Z]+_\d+$/.test(v);
+                // Cho phép size là chữ (S, M, L, XL, XXL) hoặc số (28, 29, 30...)
+                return /^\d+_\d+_.+_\d+$/.test(v);
             },
             message: `SKU không đúng định dạng (productID_colorID_size_sizeStockID)`
         }
@@ -28,7 +29,8 @@ const productSizeStockSchema = new Schema({
     size: {
         type: String,
         required: true,
-        enum: ['S', 'M', 'L', 'XL', 'XXL'] // Thêm các size khác nếu cần
+        trim: true
+        // Không giới hạn enum để hỗ trợ cả size chữ (S, M, L) và size số (28, 29, 30...)
     },
     stock: {
         type: Number,

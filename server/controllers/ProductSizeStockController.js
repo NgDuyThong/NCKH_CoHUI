@@ -200,6 +200,52 @@ class ProductSizeStockController {
             });
         }
     }
+
+    // Lấy danh sách size có sẵn theo colorID (cho form nhập kho)
+    async getSizesByColorID(req, res) {
+        try {
+            const colorID = parseInt(req.params.colorID);
+
+            // Validate colorID
+            if (!Number.isInteger(colorID) || colorID < 1) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: 'ColorID không hợp lệ' 
+                });
+            }
+
+            // Kiểm tra màu sắc tồn tại
+            const color = await ProductColor.findOne({ colorID });
+            if (!color) {
+                return res.status(404).json({ 
+                    success: false,
+                    message: 'Không tìm thấy màu sản phẩm' 
+                });
+            }
+
+            // Lấy danh sách size đã có trong kho
+            const sizeStocks = await ProductSizeStock.find({ colorID })
+                .select('size stock')
+                .sort('size');
+
+            const sizes = sizeStocks.map(item => ({
+                size: item.size,
+                currentStock: item.stock
+            }));
+
+            res.json({
+                success: true,
+                data: sizes
+            });
+        } catch (error) {
+            console.error('Error in getSizesByColorID:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Có lỗi xảy ra khi lấy danh sách size',
+                error: error.message
+            });
+        }
+    }
 }
 
 module.exports = new ProductSizeStockController();

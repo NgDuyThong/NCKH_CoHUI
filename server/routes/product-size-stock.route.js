@@ -10,6 +10,7 @@ router.get('/info/:productID/:colorName/:size', ProductSizeStockController.getSK
 
 
 //!ADMIN - PRODUCT MANAGEMENT
+router.get('/sizes/:colorID', authenticateToken, isAdmin, ProductSizeStockController.getSizesByColorID); // Lấy danh sách size theo màu (cho form nhập kho)
 router.put('/admin/product-size-stock/update/:SKU', authenticateToken, isAdmin, ProductSizeStockController.updateStock); // Cập nhật số lượng
 
 module.exports = router;

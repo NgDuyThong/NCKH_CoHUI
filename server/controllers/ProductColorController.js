@@ -9,8 +9,25 @@ class ProductColorController {
         try {
             const { productID } = req.params;
 
-            const colors = await ProductColor.find({ productID })
-                .populate('productID')
+            // Validate productID
+            const productIDNum = parseInt(productID);
+            if (!productIDNum || isNaN(productIDNum)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'ProductID không hợp lệ'
+                });
+            }
+
+            // Kiểm tra sản phẩm tồn tại
+            const product = await Product.findOne({ productID: productIDNum });
+            if (!product) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy sản phẩm'
+                });
+            }
+
+            const colors = await ProductColor.find({ productID: productIDNum })
                 .sort('colorName');
 
             // Lấy thông tin tồn kho cho mỗi màu
@@ -20,14 +37,22 @@ class ProductColorController {
                     .sort('size');
 
                 return {
-                    ...color.toJSON(),
+                    colorID: color.colorID,
+                    productID: color.productID,
+                    colorName: color.colorName,
+                    images: color.images,
                     sizes: stocks
                 };
             }));
 
-            res.json(colorsWithStock);
+            res.json({
+                success: true,
+                data: colorsWithStock
+            });
         } catch (error) {
+            console.error('Error in getProductColors:', error);
             res.status(500).json({
+                success: false,
                 message: 'Có lỗi xảy ra khi lấy danh sách màu sắc',
                 error: error.message
             });
