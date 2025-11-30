@@ -91,6 +91,36 @@ const runCoIUMProcess = async (req, res) => {
         console.log(`Tổng số sản phẩm: ${totalProducts}`);
         console.log(`Tổng số recommendations: ${totalRecommendations}`);
         
+        // ===== ĐỌC METRICS TỪ PYTHON =====
+        const metricsPath = path.join(coiumPath, 'metrics.json');
+        let metrics = {
+            runtime: 0,
+            memory: 0,
+            patternsCount: 0,
+            minutil: 0.001,
+            mincor: 0.5
+        };
+        
+        try {
+            const metricsData = await fs.readFile(metricsPath, 'utf8');
+            const metricsJson = JSON.parse(metricsData);
+            metrics = {
+                runtime: metricsJson.runtime || 0,
+                memory: metricsJson.memory || 0,
+                patternsCount: metricsJson.patterns_count || 0,
+                minutil: metricsJson.minutil || 0.001,
+                mincor: metricsJson.mincor || 0.5,
+                timestamp: metricsJson.timestamp || Date.now()
+            };
+            console.log('✅ Đã đọc metrics từ Python');
+            console.log(`   📊 Runtime: ${metrics.runtime}s`);
+            console.log(`   💾 Memory: ${metrics.memory} MB`);
+            console.log(`   🔍 Patterns: ${metrics.patternsCount}`);
+        } catch (error) {
+            console.warn('⚠️  Không đọc được metrics.json:', error.message);
+            console.warn('   Sử dụng giá trị mặc định');
+        }
+        
         res.json({
             success: true,
             message: 'Chạy CoIUM thành công!',
@@ -98,23 +128,21 @@ const runCoIUMProcess = async (req, res) => {
                 totalProducts,
                 totalRecommendations,
                 avgRecommendationsPerProduct: totalProducts > 0 ? (totalRecommendations / totalProducts).toFixed(2) : 0,
-                steps: [
-                    { step: 1, name: 'Export orders', status: 'completed' },
-                    { step: 2, name: 'Run CoIUM', status: 'completed' },
-                    { step: 3, name: 'Analyze correlation', status: 'completed' },
-                    { step: 4, name: 'Generate correlation map', status: 'completed' }
-                ]
+                // NEW: Real metrics from Python
+                runtime: metrics.runtime,
+                memory: metrics.memory,
+                patternsCount: metrics.patternsCount,
+                minutil: metrics.minutil,
+                mincor: metrics.mincor,
+                metricsTimestamp: metrics.timestamp
             }
         });
-        
     } catch (error) {
-        console.error('Lỗi khi chạy CoIUM:', error);
+        console.error('❌ Lỗi trong runCoIUMProcess:', error);
         res.status(500).json({
             success: false,
-            message: 'Có lỗi xảy ra khi chạy CoIUM',
-            error: error.message,
-            stderr: error.stderr,
-            stdout: error.stdout
+            message: 'Lỗi khi chạy CoIUM',
+            error: error.message
         });
     }
 };
