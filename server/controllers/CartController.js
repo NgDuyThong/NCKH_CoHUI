@@ -281,17 +281,82 @@ class CartController {
     // Thêm sản phẩm vào giỏ hàng
     async addToCart(req, res) {
         try {
+            console.log('📥 POST /api/cart/add - Request received');
+            console.log('Request body:', req.body);
+            console.log('User:', req.user);
+            
             const userID = req.user.userID;
             const { SKU, quantity = 1 } = req.body;
 
+            if (!SKU) {
+                console.log('❌ SKU is missing');
+                return res.status(400).json({ message: 'SKU không được để trống' });
+            }
+            
+            console.log('✅ Processing cart add for SKU:', SKU, 'quantity:', quantity, 'UserID:', userID);
+
+            if (!quantity || quantity < 1) {
+                return res.status(400).json({ message: 'Số lượng phải lớn hơn 0' });
+            }
+
             // Kiểm tra sản phẩm tồn tại và còn hàng
-            const stockItem = await ProductSizeStock.findOne({ SKU });
+            console.log('🔍 Checking if ProductSizeStock exists for SKU:', SKU);
+            let stockItem = await ProductSizeStock.findOne({ SKU });
+            
+            // Nếu không tìm thấy bằng SKU, thử tìm bằng cách parse SKU
             if (!stockItem) {
+                console.log('⚠️ Not found by SKU, trying to parse SKU...');
+                const parts = SKU.split('_');
+                if (parts.length === 4) {
+                    const [productID, colorID, size, sizeStockID] = parts;
+                    console.log('🔍 Searching by parsed values:', { productID, colorID, size, sizeStockID });
+                    
+                    // Tìm bằng colorID và size
+                    const stockByColorSize = await ProductSizeStock.findOne({ 
+                        colorID: parseInt(colorID), 
+                        size: size 
+                    });
+                    
+                    if (stockByColorSize) {
+                        console.log('✅ Found by colorID and size:', stockByColorSize.SKU);
+                        console.log('⚠️ SKU mismatch! Requested:', SKU, 'Actual in DB:', stockByColorSize.SKU);
+                        stockItem = stockByColorSize;
+                        // Cập nhật SKU để sử dụng SKU đúng từ database
+                        SKU = stockByColorSize.SKU;
+                    } else {
+                        // Tìm bằng sizeStockID
+                        const stockByID = await ProductSizeStock.findOne({ 
+                            sizeStockID: parseInt(sizeStockID) 
+                        });
+                        if (stockByID) {
+                            console.log('✅ Found by sizeStockID:', stockByID.SKU);
+                            console.log('⚠️ SKU mismatch! Requested:', SKU, 'Actual in DB:', stockByID.SKU);
+                            stockItem = stockByID;
+                            // Cập nhật SKU để sử dụng SKU đúng từ database
+                            SKU = stockByID.SKU;
+                        }
+                    }
+                }
+            }
+            
+            console.log('📦 StockItem result:', stockItem ? `Found (SKU: ${stockItem.SKU}, stock: ${stockItem.stock})` : 'Not found');
+            if (!stockItem) {
+                console.log('❌ ProductSizeStock not found for SKU:', SKU);
+                // Log thêm thông tin để debug
+                try {
+                    const allStocks = await ProductSizeStock.find({}).limit(5);
+                    console.log('📋 Sample SKUs in database:', allStocks.map(s => s.SKU));
+                } catch (e) {
+                    console.error('Error getting sample SKUs:', e);
+                }
                 return res.status(404).json({ message: 'Sản phẩm không tồn tại' });
             }
 
             if (stockItem.stock < quantity) {
-                return res.status(400).json({ message: 'Số lượng sản phẩm trong kho không đủ' });
+                return res.status(400).json({ 
+                    message: `Số lượng sản phẩm trong kho không đủ. Chỉ còn ${stockItem.stock} sản phẩm`,
+                    maxQuantity: stockItem.stock 
+                });
             }
 
             // Kiểm tra sản phẩm đã có trong giỏ hàng chưa
@@ -301,7 +366,10 @@ class CartController {
                 // Nếu đã có, cập nhật số lượng
                 const newQuantity = cartItem.quantity + quantity;
                 if (newQuantity > stockItem.stock) {
-                    return res.status(400).json({ message: 'Số lượng sản phẩm trong kho không đủ', maxQuantity: stockItem.stock });
+                    return res.status(400).json({ 
+                        message: `Số lượng sản phẩm trong kho không đủ. Chỉ còn ${stockItem.stock} sản phẩm`,
+                        maxQuantity: stockItem.stock 
+                    });
                 }
 
                 cartItem.quantity = newQuantity;
@@ -325,6 +393,29 @@ class CartController {
                 cartItem
             });
         } catch (error) {
+            console.error('❌ ERROR in addToCart:');
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            
+            // Xử lý lỗi duplicate key (E11000)
+            if (error.code === 11000 || error.name === 'MongoServerError') {
+                console.error('⚠️ Duplicate key error - cart item already exists');
+                return res.status(400).json({ 
+                    message: 'Sản phẩm đã có trong giỏ hàng',
+                    error: 'Duplicate entry'
+                });
+            }
+            
+            // Xử lý lỗi validation
+            if (error.name === 'ValidationError') {
+                console.error('⚠️ Validation error:', error.errors);
+                return res.status(400).json({ 
+                    message: 'Dữ liệu không hợp lệ',
+                    error: error.message
+                });
+            }
+            
             res.status(500).json({
                 message: 'Có lỗi xảy ra khi thêm vào giỏ hàng',
                 error: error.message

@@ -24,25 +24,41 @@ router.post('/upload-images',
     upload.array('images'), 
     async (req, res) => {
         try {
+            console.log('[UPLOAD] Received upload request from:', req.user?.email);
+            console.log('[UPLOAD] Files count:', req.files?.length);
+            
             const files = req.files;
+            
+            if (!files || files.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Không có file nào được upload'
+                });
+            }
+            
             const imageUrls = [];
             
             // Upload từng file lên Cloudinary
             for (const file of files) {
+                console.log(`[UPLOAD] Uploading file: ${file.originalname}`);
                 const publicId = await uploadFile(file.path);
                 const imageUrl = await getImageLink(publicId);
-                imageUrls.push(imageUrl);
+                imageUrls.push(imageUrl); // Trả về URL để hiển thị
+                console.log(`[UPLOAD] Uploaded: ${publicId} -> ${imageUrl}`);
             }
 
+            console.log(`[UPLOAD] ✅ Successfully uploaded ${imageUrls.length} images`);
+            
             res.json({
                 success: true,
-                imageUrls
+                imageUrls, // Array các URL
+                message: `Đã upload ${imageUrls.length} ảnh thành công`
             });
         } catch (error) {
-            console.error('Error uploading images:', error);
+            console.error('[UPLOAD] ❌ Error uploading images:', error);
             res.status(500).json({
                 success: false,
-                message: 'Lỗi khi upload ảnh'
+                message: 'Lỗi khi upload ảnh: ' + error.message
             });
         }
     }

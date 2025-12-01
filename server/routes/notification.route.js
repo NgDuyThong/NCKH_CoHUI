@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const NotificationController = require('../controllers/NotificationController');
-const { authenticateToken, isAdmin, authenticateNotificationManager } = require('../middlewares/auth.middleware');
+const { authenticateNotificationManager } = require('../middlewares/auth.middleware');
 
-// Tất cả routes đều yêu cầu đăng nhập
-router.use(authenticateToken);
+// Tất cả routes đã được áp dụng authenticateNotificationManager ở server.js
 
 //!ADMIN & NOTIFICATION MANAGER - NOTIFICATION MANAGEMENT
 router.get('/admin/notifications', authenticateNotificationManager, NotificationController.getNotficationChoADMIN); // Lấy tất cả

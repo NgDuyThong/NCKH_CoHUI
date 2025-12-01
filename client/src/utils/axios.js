@@ -14,8 +14,11 @@ const instance = axios.create({
 // Thêm interceptor cho request
 instance.interceptors.request.use(
     (config) => {
-        // Thêm token vào header dựa vào URL
-        if (config.url.includes('/admin')) {
+        // Danh sách routes cần adminToken
+        const adminRoutes = ['/admin', '/products/admin', '/products/upload-images', '/receipts'];
+        const needsAdminToken = adminRoutes.some(route => config.url.includes(route));
+        
+        if (needsAdminToken) {
             // Sử dụng adminToken cho các route admin (kiểm tra cả localStorage và sessionStorage)
             const adminToken = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
             if (adminToken) {
@@ -41,11 +44,14 @@ instance.interceptors.response.use(
         return response;
     },
     (error) => {
-        if (error.response) {
+            if (error.response) {
             switch (error.response.status) {
                 case 401:
-                    // Xử lý riêng cho từng loại token
-                    if (error.config.url.includes('/admin')) {
+                    // Kiểm tra xem request có phải từ admin route không
+                    const adminRoutes = ['/admin', '/products/admin', '/products/upload-images', '/receipts'];
+                    const isAdminRoute = adminRoutes.some(route => error.config.url.includes(route));
+                    
+                    if (isAdminRoute) {
                         localStorage.removeItem('adminToken');
                         localStorage.removeItem('adminInfo');
                         localStorage.removeItem('role');

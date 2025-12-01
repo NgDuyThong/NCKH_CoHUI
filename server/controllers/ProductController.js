@@ -1255,10 +1255,10 @@ class ProductController {
             // Xử lý từng danh mục và sản phẩm của nó
             const categoriesWithProducts = await Promise.all(
                 categories.map(async (category) => {
-                // Lấy sản phẩm theo danh mục
+                // Lấy sản phẩm theo danh mục - Lấy TẤT CẢ (bao gồm cả deactivated) để đồng bộ với database
                 const products = await Product.find({
                     categoryID: category.categoryID,
-                        isActivated: true,
+                    // BỎ filter isActivated để lấy TẤT CẢ sản phẩm
                 })
                         .populate("targetInfo", "name")
                     .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo mới nhất
@@ -1619,9 +1619,12 @@ class ProductController {
                 name,
                 price,
                 thumbnail,
+                thumbnailType: typeof thumbnail,
+                thumbnailIsArray: Array.isArray(thumbnail),
                 categoryID,
                 targetID,
-                colorsCount: colors?.length
+                colorsCount: colors?.length,
+                colorsDetail: colors
             });
 
             // Kiểm tra dữ liệu đầu vào
@@ -1643,7 +1646,13 @@ class ProductController {
                 });
             }
 
-            if (!thumbnail || !thumbnail.trim()) {
+            // Xử lý thumbnail - có thể là string hoặc array
+            let thumbnailPublicId = thumbnail;
+            if (Array.isArray(thumbnail)) {
+                thumbnailPublicId = thumbnail[0]; // Lấy phần tử đầu tiên
+            }
+
+            if (!thumbnailPublicId || (typeof thumbnailPublicId === 'string' && !thumbnailPublicId.trim())) {
                 return res.status(400).json({
                     message: "Ảnh đại diện không được để trống",
                 });
@@ -1689,14 +1698,22 @@ class ProductController {
                 name,
                 price: Number(price),
                 description,
-                thumbnail,
+                thumbnail: thumbnailPublicId, // Dùng thumbnailPublicId đã xử lý
                 categoryID: category.categoryID,
                 targetID: target.targetID,
                 isActivated: true,
             });
 
             // Lưu sản phẩm
-            const savedProduct = await newProduct.save();
+            let savedProduct;
+            try {
+                savedProduct = await newProduct.save();
+                console.log('[CREATE] ✅ Product saved successfully:', savedProduct.productID);
+            } catch (saveError) {
+                console.error('[CREATE] ❌ Error saving product:', saveError);
+                console.error('[CREATE] Validation errors:', saveError.errors);
+                throw new Error(`Lỗi khi lưu sản phẩm: ${saveError.message}`);
+            }
 
             // Xử lý màu sắc và size nếu có
             if (colors && colors.length > 0) {
@@ -1736,33 +1753,39 @@ class ProductController {
                 for (const color of colors) {
                     console.log(`[CREATE] Creating color: ${color.colorName}, images:`, color.images);
                     
-                    // Tạo màu mới
-                    const newColor = new ProductColor({
-                        colorID: nextColorID,
-                        productID: newProductID,
-                        colorName: color.colorName.trim(),
-                        images: color.images, // Array các publicId
-                    });
-                    const savedColor = await newColor.save();
-                    console.log(`[CREATE] Saved color ID: ${savedColor.colorID}`);
-
-                    // Tạo size stocks cho màu này
-                    if (color.sizes && color.sizes.length > 0) {
-                        const sizeStocks = color.sizes.map((size) => {
-                            const sizeStockID = nextSizeStockID++;
-                            return {
-                                sizeStockID,
-                                SKU: `${newProductID}_${nextColorID}_${size.size}_${sizeStockID}`,
-                                colorID: savedColor.colorID,
-                                size: size.size,
-                                stock: size.stock,
-                            };
+                    try {
+                        // Tạo màu mới
+                        const newColor = new ProductColor({
+                            colorID: nextColorID,
+                            productID: newProductID,
+                            colorName: color.colorName.trim(),
+                            images: color.images, // Array các publicId
                         });
+                        const savedColor = await newColor.save();
+                        console.log(`[CREATE] Saved color ID: ${savedColor.colorID}`);
 
-                        await ProductSizeStock.insertMany(sizeStocks);
+                        // Tạo size stocks cho màu này
+                        if (color.sizes && color.sizes.length > 0) {
+                            const sizeStocks = color.sizes.map((size) => {
+                                const sizeStockID = nextSizeStockID++;
+                                return {
+                                    sizeStockID,
+                                    SKU: `${newProductID}_${nextColorID}_${size.size}_${sizeStockID}`,
+                                    colorID: savedColor.colorID,
+                                    size: size.size,
+                                    stock: size.stock,
+                                };
+                            });
+
+                            console.log(`[CREATE] Creating ${sizeStocks.length} size stocks for color ${nextColorID}`);
+                            await ProductSizeStock.insertMany(sizeStocks);
+                        }
+
+                        nextColorID++;
+                    } catch (colorError) {
+                        console.error(`[CREATE] ❌ Error creating color ${color.colorName}:`, colorError);
+                        throw new Error(`Lỗi khi tạo màu ${color.colorName}: ${colorError.message}`);
                     }
-
-                    nextColorID++;
                 }
             }
 
@@ -1770,6 +1793,16 @@ class ProductController {
             const createdProduct = await Product.findOne({ productID: newProductID })
                 .populate("targetInfo", "name")
                 .populate("categoryInfo", "name");
+
+            // Log thông tin sản phẩm vừa tạo TRƯỚC KHI trả về
+            console.log('[CREATE] ✅ Thông tin sản phẩm vừa tạo:', {
+                productID: createdProduct.productID,
+                name: createdProduct.name,
+                price: createdProduct.price,
+                targetInfo: createdProduct.targetInfo,
+                categoryInfo: createdProduct.categoryInfo,
+                thumbnail: createdProduct.thumbnail
+            });
 
             // Xử lý thumbnail URL trước khi trả về
             const productWithThumbnail = {
@@ -1781,49 +1814,22 @@ class ProductController {
                 message: "Thêm sản phẩm mới thành công",
                 product: productWithThumbnail,
             });
-            // Log thông tin sản phẩm vừa tạo
-            console.log('Thông tin sản phẩm vừa tạo:', {
-                productID: createdProduct.productID,
-                name: createdProduct.name,
-                price: createdProduct.price,
-                targetInfo: createdProduct.targetInfo,
-                categoryInfo: createdProduct.categoryInfo,
-                thumbnail: productWithThumbnail.thumbnail
-            });
-
-            // Log thông tin màu sắc vừa tạo
-            const createdColors = await ProductColor.find({ productID: newProductID })
-                .populate({
-                    path: 'colorID',
-                    select: 'colorName images'
-                });
-
-            console.log('Thông tin màu sắc vừa tạo:', createdColors.map(color => ({
-                colorID: color.colorID,
-                colorName: color.colorName,
-                images: color.images,
-                productID: color.productID
-            })));
-            // Log thông tin size và stock vừa tạo
-            const createdSizeStocks = await ProductSizeStock.find({
-                colorID: { $in: createdColors.map(color => color.colorID) }
-            });
-
-            console.log('Thông tin size và stock vừa tạo:', createdSizeStocks.map(sizeStock => ({
-                sizeStockID: sizeStock.sizeStockID,
-                colorID: sizeStock.colorID,
-                size: sizeStock.size,
-                stock: sizeStock.stock,
-                SKU: sizeStock.SKU
-            })));
-
 
         } catch (error) {
             console.error("[CREATE] ❌ Lỗi khi thêm sản phẩm mới:", error);
+            console.error("[CREATE] Stack trace:", error.stack);
+            
+            // Trả về error message chi tiết hơn
+            const errorMessage = error.message || "Có lỗi xảy ra khi thêm sản phẩm mới";
+            
             res.status(500).json({
                 success: false,
-                message: "Có lỗi xảy ra khi thêm sản phẩm mới",
+                message: errorMessage,
                 error: error.message,
+                details: error.errors ? Object.keys(error.errors).map(key => ({
+                    field: key,
+                    message: error.errors[key].message
+                })) : null
             });
         }
     }

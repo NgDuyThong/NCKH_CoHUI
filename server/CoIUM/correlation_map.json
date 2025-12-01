@@ -1741,13 +1741,6 @@
       "price": 747000
     },
     {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
-    {
       "productID": 101,
       "name": "Đầm xòe tay kiểu",
       "categoryID": 18,
@@ -1792,57 +1785,6 @@
       "price": 903000
     }
   ],
-  "57": [
-    {
-      "productID": 65,
-      "name": "Trench Coat - Áo khoác Măng Tô có đai",
-      "categoryID": 13,
-      "targetID": 2,
-      "price": 2443000
-    },
-    {
-      "productID": 87,
-      "name": "Jumpsuit áo kiểu phối dây",
-      "categoryID": 22,
-      "targetID": 2,
-      "price": 1393000
-    },
-    {
-      "productID": 62,
-      "name": "Áo vest Tuytsi You Beige",
-      "categoryID": 16,
-      "targetID": 2,
-      "price": 995000
-    },
-    {
-      "productID": 86,
-      "name": "Set Jumsuit tay baby",
-      "categoryID": 22,
-      "targetID": 2,
-      "price": 1043000
-    },
-    {
-      "productID": 95,
-      "name": "Đầm ôm Tapta cổ đức",
-      "categoryID": 24,
-      "targetID": 2,
-      "price": 1673000
-    },
-    {
-      "productID": 89,
-      "name": "Chân váy xòe Jacquard chấm bi",
-      "categoryID": 17,
-      "targetID": 2,
-      "price": 945000
-    },
-    {
-      "productID": 96,
-      "name": "Đầm ôm Tuytsi Hiver",
-      "categoryID": 24,
-      "targetID": 2,
-      "price": 1045000
-    }
-  ],
   "58": [
     {
       "productID": 38,
@@ -1857,13 +1799,6 @@
       "categoryID": 18,
       "targetID": 2,
       "price": 1113000
-    },
-    {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
     },
     {
       "productID": 45,
@@ -2014,13 +1949,6 @@
       "price": 903000
     },
     {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
-    {
       "productID": 94,
       "name": "Đầm lụa xòe cổ nơ Signature",
       "categoryID": 24,
@@ -2105,6 +2033,13 @@
       "categoryID": 17,
       "targetID": 2,
       "price": 763000
+    },
+    {
+      "productID": 52,
+      "name": "Áo Vest kiểu French (kèm áo croptop)",
+      "categoryID": 14,
+      "targetID": 2,
+      "price": 890000
     }
   ],
   "64": [
@@ -2121,13 +2056,6 @@
       "categoryID": 2,
       "targetID": 2,
       "price": 973000
-    },
-    {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
     },
     {
       "productID": 56,
@@ -2166,13 +2094,6 @@
     }
   ],
   "65": [
-    {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
     {
       "productID": 56,
       "name": "Áo lót trơn viền phối ren",
@@ -2533,13 +2454,6 @@
       "price": 1043000
     },
     {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
-    {
       "productID": 100,
       "name": "Pure Dress - Đầm Rayon cổ đức kèm đai",
       "categoryID": 18,
@@ -2827,13 +2741,6 @@
       "price": 1183000
     },
     {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
-    {
       "productID": 44,
       "name": "Áo thun Luxe Roar",
       "categoryID": 6,
@@ -2871,13 +2778,6 @@
   ],
   "86": [
     {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
-    {
       "productID": 67,
       "name": "Áo vest Tweed Kose",
       "categoryID": 13,
@@ -2914,13 +2814,6 @@
     }
   ],
   "87": [
-    {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
     {
       "productID": 66,
       "name": "Áo vest Tweed Essence",
@@ -3050,13 +2943,6 @@
       "categoryID": 22,
       "targetID": 2,
       "price": 1393000
-    },
-    {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
     },
     {
       "productID": 112,
@@ -3330,13 +3216,6 @@
       "price": 1603000
     },
     {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
-    {
       "productID": 101,
       "name": "Đầm xòe tay kiểu",
       "categoryID": 18,
@@ -3365,13 +3244,6 @@
       "categoryID": 24,
       "targetID": 2,
       "price": 1673000
-    },
-    {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
     },
     {
       "productID": 99,
@@ -3650,13 +3522,6 @@
       "price": 763000
     },
     {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
-    },
-    {
       "productID": 64,
       "name": "Áo vest suông SOLAR",
       "categoryID": 16,
@@ -3729,13 +3594,6 @@
       "categoryID": 12,
       "targetID": 2,
       "price": 763000
-    },
-    {
-      "productID": 57,
-      "name": "Bodysuit Ren",
-      "categoryID": 21,
-      "targetID": 2,
-      "price": 250000
     },
     {
       "productID": 86,

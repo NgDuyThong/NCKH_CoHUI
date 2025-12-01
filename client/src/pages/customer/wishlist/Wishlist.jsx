@@ -41,11 +41,7 @@ const Wishlist = () => {
       }
 
       // Gọi API lấy danh sách yêu thích
-      const response = await axiosInstance.get(`/api/favorite?page=${page}&limit=12`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await axiosInstance.get(`/api/favorite?page=${page}&limit=12`);
       
       // Cập nhật state với dữ liệu nhận được
       setFavorites(response.data.items);
@@ -86,26 +82,31 @@ const Wishlist = () => {
 
       if (!itemToDelete) return;
 
-      await axiosInstance.delete(`/api/favorite/${itemToDelete.SKU}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // URL encode SKU để tránh lỗi với ký tự đặc biệt
+      const encodedSKU = encodeURIComponent(itemToDelete.SKU);
+      const response = await axiosInstance.delete(`/api/favorite/${encodedSKU}`);
 
-      setFavorites(prevFavorites => prevFavorites.filter(item => item.favoriteID !== itemToDelete.favoriteID));
-      toast.success('Đã xóa khỏi danh sách yêu thích');
-      window.dispatchEvent(new Event('wishlistChange'));
-      setShowDeleteModal(false);
-      setItemToDelete(null);
+      if (response.status === 200) {
+        setFavorites(prevFavorites => prevFavorites.filter(item => item.favoriteID !== itemToDelete.favoriteID));
+        toast.success('Đã xóa khỏi danh sách yêu thích');
+        window.dispatchEvent(new Event('wishlistChange'));
+        setShowDeleteModal(false);
+        setItemToDelete(null);
+      }
     } catch (error) {
+      console.error('Lỗi khi xóa khỏi danh sách yêu thích:', error);
       // Xử lý lỗi
-      if (error.response && error.response.status === 403) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         toast.error('Phiên đăng nhập đã hết hạn');
         localStorage.removeItem('customerToken');
         sessionStorage.removeItem('customerToken');
         navigate('/login');
+      } else if (error.response?.status === 404) {
+        toast.error('Không tìm thấy sản phẩm trong danh sách yêu thích');
+        // Refresh danh sách để đồng bộ
+        fetchFavorites(currentPage);
       } else {
-        toast.error('Không thể xóa sản phẩm');
+        toast.error(error.response?.data?.message || 'Không thể xóa sản phẩm. Vui lòng thử lại.');
       }
     }
   };
@@ -119,11 +120,7 @@ const Wishlist = () => {
       const token = localToken || sessionToken;
 
       // Gọi API cập nhật ghi chú
-      await axiosInstance.put(`/api/favorite/${favoriteID}`, { note: noteText }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await axiosInstance.put(`/api/favorite/${favoriteID}`, { note: noteText });
 
       // Cập nhật state sau khi cập nhật thành công
       setFavorites(prevFavorites => 
@@ -157,14 +154,16 @@ const Wishlist = () => {
       const sessionToken = sessionStorage.getItem('customerToken');
       const token = localToken || sessionToken;
 
+      if (!token) {
+        toast.error('Vui lòng đăng nhập để thêm vào giỏ hàng');
+        navigate('/login');
+        return;
+      }
+
       // Gọi API thêm vào giỏ hàng
       const response = await axiosInstance.post('/api/cart/add', {
         SKU: item.SKU,
         quantity: 1
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
       });
 
       if (response.status === 201) {
@@ -175,14 +174,19 @@ const Wishlist = () => {
       }
 
     } catch (error) {
+      console.error('Lỗi khi thêm vào giỏ hàng:', error);
       // Xử lý lỗi
-      if (error.response && error.response.status === 403) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         toast.error('Phiên đăng nhập đã hết hạn');
         localStorage.removeItem('customerToken');
         sessionStorage.removeItem('customerToken');
         navigate('/login');
+      } else if (error.response?.status === 400) {
+        toast.error(error.response?.data?.message || 'Số lượng sản phẩm trong kho không đủ');
+      } else if (error.response?.status === 404) {
+        toast.error(error.response?.data?.message || 'Sản phẩm không tồn tại');
       } else {
-        toast.error(error.response?.data?.message || 'Không thể thêm vào giỏ hàng');
+        toast.error(error.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
       }
     }
   };

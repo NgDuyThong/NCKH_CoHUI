@@ -130,12 +130,8 @@ const CustomerLayout = () => {
 
         // Fetch tất cả dữ liệu cùng lúc
         const [cartResponse, wishlistResponse] = await Promise.all([
-          axiosInstance.get('/api/cart', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          axiosInstance.get('/api/favorite', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
+          axiosInstance.get('/api/cart'),
+          axiosInstance.get('/api/favorite')
         ]);
 
         // Cập nhật state cho cart

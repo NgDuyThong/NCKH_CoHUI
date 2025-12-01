@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { FiUpload, FiX } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import axios from '../utils/axios';
+import { convertUrlsToPublicIds, getImageUrl } from '../utils/cloudinary';
 
 const ImageUpload = ({ onImageUpload, currentImage }) => {
-    const [previewUrl, setPreviewUrl] = useState(currentImage || '');
+    // Convert currentImage (publicId) to URL for preview
+    const initialUrl = currentImage ? getImageUrl(currentImage) : '';
+    const [previewUrl, setPreviewUrl] = useState(initialUrl);
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileChange = async (e) => {
@@ -19,6 +22,14 @@ const ImageUpload = ({ onImageUpload, currentImage }) => {
             }
         }
 
+        // Kiểm tra kích thước file (max 5MB mỗi file)
+        for (let file of files) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error(`File ${file.name} quá lớn. Vui lòng chọn file nhỏ hơn 5MB`);
+                return;
+            }
+        }
+
         try {
             setIsUploading(true);
             const formData = new FormData();
@@ -28,6 +39,8 @@ const ImageUpload = ({ onImageUpload, currentImage }) => {
                 formData.append('images', file);
             }
 
+            console.log('[ImageUpload] Uploading images...', files.length, 'files');
+
             // Gửi request upload ảnh
             const response = await axios.post('/api/products/upload-images', formData, {
                 headers: {
@@ -35,16 +48,37 @@ const ImageUpload = ({ onImageUpload, currentImage }) => {
                 },
             });
 
+            console.log('[ImageUpload] Upload response:', response.data);
+
             if (response.data.success) {
-                const imageUrls = response.data.imageUrls;
-                setPreviewUrl(imageUrls[0]); // Hiển thị preview ảnh đầu tiên
-                onImageUpload(imageUrls); // Trả về tất cả URL ảnh
+                const imageUrls = response.data.imageUrls; // Array các URL
+                console.log('[ImageUpload] Received URLs:', imageUrls);
+                
+                // Hiển thị preview với URL
+                setPreviewUrl(imageUrls[0]); 
+                
+                // Convert URL thành publicId để lưu vào database
+                const publicIds = convertUrlsToPublicIds(imageUrls);
+                console.log('[ImageUpload] Converted to publicIds:', publicIds);
+                
+                // ImageUpload là single image, nên trả về string (phần tử đầu tiên)
+                onImageUpload(publicIds[0]); // Trả về string publicId
                 toast.success('Tải ảnh lên thành công');
+            } else {
+                toast.error('Upload ảnh thất bại: ' + (response.data.message || 'Unknown error'));
             }
 
         } catch (error) {
-            console.error('Lỗi khi upload ảnh:', error);
-            toast.error('Lỗi khi tải ảnh lên: ' + (error.response?.data?.message || error.message));
+            console.error('[ImageUpload] Lỗi khi upload ảnh:', error);
+            console.error('[ImageUpload] Error response:', error.response?.data);
+            
+            if (error.response?.status === 401) {
+                toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
+            } else if (error.response?.status === 403) {
+                toast.error('Bạn không có quyền upload ảnh!');
+            } else {
+                toast.error('Lỗi khi tải ảnh lên: ' + (error.response?.data?.message || error.message));
+            }
         } finally {
             setIsUploading(false);
         }
@@ -52,7 +86,7 @@ const ImageUpload = ({ onImageUpload, currentImage }) => {
 
     const handleRemoveImage = () => {
         setPreviewUrl('');
-        onImageUpload([]);
+        onImageUpload(''); // Trả về string rỗng
     };
 
     return (

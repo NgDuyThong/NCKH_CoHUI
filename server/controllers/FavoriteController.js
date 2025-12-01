@@ -110,40 +110,183 @@ class FavoriteController {
     // Thêm sản phẩm vào danh sách yêu thích
     async addToFavorites(req, res) {
         try {
+            console.log('📥 POST /api/favorite/add - Request received');
+            console.log('Request body:', req.body);
+            console.log('User:', req.user);
+            
             const userID = req.user.userID;
             const { SKU, note = '' } = req.body;
 
+            if (!SKU) {
+                console.log('❌ SKU is missing');
+                return res.status(400).json({ message: 'SKU không được để trống' });
+            }
+            
+            console.log('✅ Processing favorite add for SKU:', SKU, 'UserID:', userID);
+
             // Kiểm tra sản phẩm tồn tại
-            const stockItem = await ProductSizeStock.findOne({ SKU });
+            let stockItem;
+            try {
+                console.log('🔍 Checking if ProductSizeStock exists for SKU:', SKU);
+                stockItem = await ProductSizeStock.findOne({ SKU });
+                
+                // Nếu không tìm thấy bằng SKU, thử tìm bằng cách parse SKU
+                if (!stockItem) {
+                    console.log('⚠️ Not found by SKU, trying to parse SKU...');
+                    const parts = SKU.split('_');
+                    if (parts.length === 4) {
+                        const [productID, colorID, size, sizeStockID] = parts;
+                        console.log('🔍 Searching by parsed values:', { productID, colorID, size, sizeStockID });
+                        
+                        // Tìm bằng colorID và size
+                        const stockByColorSize = await ProductSizeStock.findOne({ 
+                            colorID: parseInt(colorID), 
+                            size: size 
+                        });
+                        
+                        if (stockByColorSize) {
+                            console.log('✅ Found by colorID and size:', stockByColorSize.SKU);
+                            console.log('⚠️ SKU mismatch! Requested:', SKU, 'Actual in DB:', stockByColorSize.SKU);
+                            stockItem = stockByColorSize;
+                        } else {
+                            // Tìm bằng sizeStockID
+                            const stockByID = await ProductSizeStock.findOne({ 
+                                sizeStockID: parseInt(sizeStockID) 
+                            });
+                            if (stockByID) {
+                                console.log('✅ Found by sizeStockID:', stockByID.SKU);
+                                console.log('⚠️ SKU mismatch! Requested:', SKU, 'Actual in DB:', stockByID.SKU);
+                                stockItem = stockByID;
+                            }
+                        }
+                    }
+                }
+                
+                console.log('📦 StockItem result:', stockItem ? `Found (SKU: ${stockItem.SKU}, sizeStockID: ${stockItem.sizeStockID})` : 'Not found');
+            } catch (dbError) {
+                console.error('❌ Database error when finding ProductSizeStock:', dbError);
+                return res.status(500).json({ 
+                    message: 'Lỗi khi kiểm tra sản phẩm',
+                    error: dbError.message 
+                });
+            }
+            
             if (!stockItem) {
+                console.log('❌ ProductSizeStock not found for SKU:', SKU);
+                // Log thêm thông tin để debug
+                try {
+                    const allStocks = await ProductSizeStock.find({}).limit(5);
+                    console.log('📋 Sample SKUs in database:', allStocks.map(s => s.SKU));
+                } catch (e) {
+                    console.error('Error getting sample SKUs:', e);
+                }
                 return res.status(404).json({ message: 'Sản phẩm không tồn tại' });
             }
+            console.log('✅ ProductSizeStock found:', stockItem.sizeStockID, 'SKU:', stockItem.SKU);
 
             // Kiểm tra sản phẩm đã có trong danh sách yêu thích chưa
-            const existingFavorite = await Favorite.findOne({ userID, SKU });
+            let existingFavorite;
+            try {
+                console.log('🔍 Checking if favorite already exists for userID:', userID, 'SKU:', SKU);
+                existingFavorite = await Favorite.findOne({ userID, SKU });
+                console.log('💖 Existing favorite result:', existingFavorite ? `Found (favoriteID: ${existingFavorite.favoriteID})` : 'Not found (can add)');
+            } catch (dbError) {
+                console.error('❌ Database error when finding existing favorite:', dbError);
+                return res.status(500).json({ 
+                    message: 'Lỗi khi kiểm tra danh sách yêu thích',
+                    error: dbError.message 
+                });
+            }
+            
             if (existingFavorite) {
+                console.log('⚠️ Favorite already exists, returning 400');
                 return res.status(400).json({ message: 'Sản phẩm đã có trong danh sách yêu thích' });
             }
 
             // Tạo ID mới cho favorite
-            const lastFavorite = await Favorite.findOne().sort({ favoriteID: -1 });
-            const favoriteID = lastFavorite ? lastFavorite.favoriteID + 1 : 1;
+            let favoriteID;
+            try {
+                console.log('🔢 Getting next favoriteID...');
+                const lastFavorite = await Favorite.findOne().sort({ favoriteID: -1 });
+                favoriteID = lastFavorite ? lastFavorite.favoriteID + 1 : 1;
+                console.log('✅ Next favoriteID:', favoriteID);
+            } catch (dbError) {
+                console.error('❌ Database error when getting next favoriteID:', dbError);
+                return res.status(500).json({ 
+                    message: 'Lỗi khi tạo ID mới',
+                    error: dbError.message 
+                });
+            }
 
             // Thêm vào danh sách yêu thích
+            console.log('📝 Creating new Favorite object...');
             const favorite = new Favorite({
                 favoriteID,
                 userID,
                 SKU,
                 note
             });
+            console.log('💾 Saving favorite to database...');
+            
+            try {
+                await favorite.save();
+                console.log('✅ Favorite saved successfully! FavoriteID:', favorite.favoriteID);
+            } catch (saveError) {
+                console.error('❌ Error saving favorite:', saveError);
+                console.error('Save error name:', saveError.name);
+                console.error('Save error code:', saveError.code);
+                console.error('Save error message:', saveError.message);
+                
+                // Xử lý lỗi duplicate key từ pre-save hook hoặc unique index
+                if (saveError.code === 11000 || saveError.name === 'MongoServerError') {
+                    console.error('⚠️ Duplicate key error during save');
+                    return res.status(400).json({ 
+                        message: 'Sản phẩm đã có trong danh sách yêu thích',
+                        error: 'Duplicate entry'
+                    });
+                }
+                
+                // Xử lý lỗi từ pre-save hook
+                if (saveError.message === 'Sản phẩm không tồn tại') {
+                    return res.status(404).json({ 
+                        message: 'Sản phẩm không tồn tại',
+                        error: saveError.message
+                    });
+                }
+                
+                throw saveError; // Re-throw để catch block chính xử lý
+            }
 
-            await favorite.save();
-
+            console.log('📤 Sending success response...');
             res.status(201).json({
                 message: 'Thêm vào danh sách yêu thích thành công',
                 favorite
             });
+            console.log('✅ Response sent successfully');
         } catch (error) {
+            console.error('❌ ERROR in addToFavorites:');
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            
+            // Xử lý lỗi duplicate key (E11000)
+            if (error.code === 11000 || error.name === 'MongoServerError') {
+                console.error('⚠️ Duplicate key error - favorite already exists');
+                return res.status(400).json({ 
+                    message: 'Sản phẩm đã có trong danh sách yêu thích',
+                    error: 'Duplicate entry'
+                });
+            }
+            
+            // Xử lý lỗi validation
+            if (error.name === 'ValidationError') {
+                console.error('⚠️ Validation error:', error.errors);
+                return res.status(400).json({ 
+                    message: 'Dữ liệu không hợp lệ',
+                    error: error.message
+                });
+            }
+            
             res.status(500).json({
                 message: 'Có lỗi xảy ra khi thêm vào danh sách yêu thích',
                 error: error.message
@@ -182,23 +325,21 @@ class FavoriteController {
     async removeFromFavorites(req, res) {
         try {
             const userID = req.user.userID;
-            const { SKU } = req.params;
+            // Express tự động decode URL parameters, nhưng để chắc chắn ta decode lại
+            let { SKU } = req.params;
+            SKU = decodeURIComponent(SKU);
             
-            console.log('Đang xử lý yêu cầu xóa khỏi danh sách yêu thích:');
-            console.log('UserID:', userID);
-            console.log('SKU:', SKU);
+            if (!SKU) {
+                return res.status(400).json({ message: 'SKU không hợp lệ' });
+            }
 
             const favorite = await Favorite.findOne({ SKU, userID });
-            console.log('Kết quả tìm kiếm favorite:', favorite);
             
             if (!favorite) {
-                console.log('Không tìm thấy sản phẩm yêu thích');
                 return res.status(404).json({ message: 'Không tìm thấy sản phẩm trong danh sách yêu thích' });
             }
 
-            console.log('Bắt đầu xóa favorite với ID:', favorite.favoriteID);
             await favorite.deleteOne();
-            console.log('Đã xóa favorite thành công');
 
             res.json({ message: 'Xóa khỏi danh sách yêu thích thành công' });
         } catch (error) {
@@ -214,19 +355,29 @@ class FavoriteController {
     async checkFavorite(req, res) {
         try {
             const userID = req.user.userID;
-            const { SKU } = req.params;
+            // Express tự động decode URL parameters, nhưng để chắc chắn ta decode lại
+            let { SKU } = req.params;
+            SKU = decodeURIComponent(SKU);
+
+            if (!SKU) {
+                return res.status(400).json({ 
+                    message: 'SKU không hợp lệ',
+                    isFavorite: false 
+                });
+            }
 
             const favorite = await Favorite.findOne({ userID, SKU });
-            console.log('Found favorite:', favorite);
 
             res.json({
                 isFavorite: !!favorite,
-                favorite
+                favorite: favorite || null
             });
         } catch (error) {
+            console.error('Lỗi khi kiểm tra trạng thái yêu thích:', error);
             res.status(500).json({
                 message: 'Có lỗi xảy ra khi kiểm tra trạng thái yêu thích',
-                error: error.message
+                error: error.message,
+                isFavorite: false
             });
         }
     }

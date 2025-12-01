@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiPackage, FiEye, FiEdit, FiList, FiPlus, FiUser, FiDownload, FiFileText } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import axios from '../../utils/axios';
@@ -7,11 +8,13 @@ import { formatDate } from '../../utils/dateUtils';
 import ImageUpload from '../../components/ImageUpload';
 import MultipleImageUpload from '../../components/MultipleImageUpload';
 import { generateInventoryImportPDF } from '../../utils/pdfGenerator';
+import { getAllAvailableColors, getColorCode } from '../../utils/colorUtils';
 
 // Component quản lý sản phẩm
 const ProductManagement = () => {
     // Sử dụng theme tối/sáng
     const { isDarkMode } = useTheme();
+    const navigate = useNavigate();
 
     // ===== STATES =====
     // ===== GIAO DIỆN =====
@@ -678,17 +681,11 @@ const ProductManagement = () => {
             console.log('Selected Target:', selectedTarget);
             console.log('New Product Data:', newProduct);
 
-            // Xử lý thumbnail - đảm bảo là string (publicId), không phải array
-            let thumbnailPublicId = newProduct.thumbnail;
-            if (Array.isArray(thumbnailPublicId)) {
-                thumbnailPublicId = thumbnailPublicId[0]; // Lấy phần tử đầu tiên nếu là array
-            }
-
             const processedPayload = {
                 name: newProduct.name.trim(),
                 price: parseInt(newProduct.price),
                 description: newProduct.description.trim(),
-                thumbnail: thumbnailPublicId,
+                thumbnail: newProduct.thumbnail, // Đã là string
                 categoryID: parseInt(selectedCategory.categoryID),
                 targetID: parseInt(selectedTarget.targetID),
                 colors: newProduct.colors.map(color => ({
@@ -705,6 +702,24 @@ const ProductManagement = () => {
 
             // Log payload cuối cùng để kiểm tra
             console.log('Final processed payload:', processedPayload);
+            
+            // Validate payload before sending
+            if (!processedPayload.thumbnail || typeof processedPayload.thumbnail !== 'string') {
+                toast.error('Lỗi: Thumbnail không hợp lệ (phải là string)');
+                setLoading(false);
+                return;
+            }
+            
+            // Validate colors có images
+            for (let idx = 0; idx < processedPayload.colors.length; idx++) {
+                const color = processedPayload.colors[idx];
+                if (!Array.isArray(color.images) || color.images.length === 0) {
+                    toast.error(`Lỗi: Màu ${color.colorName} chưa có ảnh`);
+                    setLoading(false);
+                    return;
+                }
+                console.log(`Color ${idx}: ${color.colorName}, images:`, color.images);
+            }
 
             const response = await axios.post('/api/products/admin/create', processedPayload);
 
@@ -736,7 +751,16 @@ const ProductManagement = () => {
         } catch (error) {
             console.error('Lỗi khi tạo sản phẩm mới:', error);
             console.error('Chi tiết lỗi:', error.response?.data);
-            toast.error(error.response?.data?.message || 'Lỗi khi tạo sản phẩm mới');
+            
+            // Log chi tiết hơn
+            if (error.response?.data) {
+                console.error('Error message:', error.response.data.message);
+                console.error('Error details:', error.response.data.details);
+                console.error('Error error:', error.response.data.error);
+            }
+            
+            const errorMessage = error.response?.data?.message || 'Lỗi khi tạo sản phẩm mới';
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -744,27 +768,8 @@ const ProductManagement = () => {
 
     // ===== HANDLERS CHO PHIẾU NHẬP KHO =====
     const handleOpenInventoryImport = () => {
-        // Khởi tạo với 1 item mẫu
-        setInventoryImportData({
-            importNumber: `NK${Date.now().toString().slice(-6)}`,
-            debtorNumber: '',
-            creditorNumber: '',
-            deliveryPerson: '',
-            issuer: '',
-            warehouseLocation: '',
-            items: [{
-                productName: '',
-                productCode: '',
-                unit: 'Cai',
-                quantity: 0,
-                actualQuantity: 0,
-                price: 0,
-                total: 0
-            }],
-            totalInWords: '',
-            attachedDocuments: ''
-        });
-        setIsInventoryImportModalOpen(true);
+        // Navigate đến trang phiếu nhập kho
+        navigate('/admin/warehouse-receipt');
     };
 
     const handleAddInventoryItem = () => {
@@ -1640,11 +1645,11 @@ const ProductManagement = () => {
                                     <label className="block text-sm font-medium mb-1">Ảnh sản phẩm</label>
                                     <ImageUpload
                                         currentImage={editingProduct.thumbnail}
-                                        onImageUpload={(imageUrls) => {
-                                            setUploadedImages(imageUrls);
+                                        onImageUpload={(publicId) => {
+                                            setUploadedImages(publicId);
                                             setEditingProduct({
                                                 ...editingProduct,
-                                                thumbnail: imageUrls[0] || '' // Sử dụng ảnh đầu tiên làm thumbnail
+                                                thumbnail: publicId // Giờ là string
                                             });
                                         }}
                                     />
@@ -2028,10 +2033,10 @@ const ProductManagement = () => {
                                             type="number"
                                             value={newProduct.price}
                                             onChange={(e) => {
-                                                const value = parseInt(e.target.value) || 0;
+                                                const value = e.target.value;
                                                 setNewProduct({
                                                     ...newProduct,
-                                                    price: value
+                                                    price: value === '' ? '' : parseInt(value) || ''
                                                 });
                                             }}
                                             className={`w-full p-3 rounded-lg border transition-colors ${isDarkMode
@@ -2039,6 +2044,7 @@ const ProductManagement = () => {
                                                     : 'bg-white border-gray-300 hover:border-gray-400'
                                                 } focus:ring-2 focus:ring-green-500 focus:border-transparent`}
                                             placeholder="Nhập giá sản phẩm..."
+                                            min="0"
                                         />
                                     </div>
                                     <div>
@@ -2107,10 +2113,10 @@ const ProductManagement = () => {
                                         </label>
                                         <ImageUpload
                                             currentImage={newProduct.thumbnail}
-                                            onImageUpload={(imageUrls) => {
+                                            onImageUpload={(publicId) => {
                                                 setNewProduct({
                                                     ...newProduct,
-                                                    thumbnail: imageUrls[0] || ''
+                                                    thumbnail: publicId // Giờ là string rồi
                                                 });
                                             }}
                                         />
@@ -2182,20 +2188,45 @@ const ProductManagement = () => {
                                                     <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                                                         Tên màu
                                                     </label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Nhập tên màu..."
-                                                        value={color.colorName}
-                                                        onChange={(e) => {
-                                                            const updatedColors = [...newProduct.colors];
-                                                            updatedColors[colorIndex].colorName = e.target.value;
-                                                            setNewProduct({ ...newProduct, colors: updatedColors });
-                                                        }}
-                                                        className={`w-full p-3 rounded-lg border transition-colors ${isDarkMode
-                                                                ? 'bg-gray-700 border-gray-600 text-white hover:border-gray-500'
-                                                                : 'bg-white border-gray-300 hover:border-gray-400'
-                                                            } focus:ring-2 focus:ring-green-500 focus:border-transparent`}
-                                                    />
+                                                    <div className="relative">
+                                                        <input
+                                                            type="text"
+                                                            list={`color-suggestions-${colorIndex}`}
+                                                            placeholder="Nhập hoặc chọn màu..."
+                                                            value={color.colorName}
+                                                            onChange={(e) => {
+                                                                const updatedColors = [...newProduct.colors];
+                                                                updatedColors[colorIndex].colorName = e.target.value;
+                                                                setNewProduct({ ...newProduct, colors: updatedColors });
+                                                            }}
+                                                            className={`w-full p-3 rounded-lg border transition-colors ${isDarkMode
+                                                                    ? 'bg-gray-700 border-gray-600 text-white hover:border-gray-500'
+                                                                    : 'bg-white border-gray-300 hover:border-gray-400'
+                                                                } focus:ring-2 focus:ring-green-500 focus:border-transparent`}
+                                                        />
+                                                        <datalist id={`color-suggestions-${colorIndex}`}>
+                                                            {getAllAvailableColors().map((colorName) => (
+                                                                <option key={colorName} value={colorName} />
+                                                            ))}
+                                                        </datalist>
+                                                        {/* Preview màu */}
+                                                        {color.colorName && (
+                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                                                <span className="text-xs text-gray-500">Xem trước:</span>
+                                                                <div
+                                                                    className="w-8 h-8 rounded-full border-2 border-gray-300 shadow-sm"
+                                                                    style={{
+                                                                        background: getColorCode(color.colorName),
+                                                                        backgroundSize: '20px 20px'
+                                                                    }}
+                                                                    title={color.colorName}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <p className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        Gợi ý: Đen, Trắng, Đỏ, Xanh, Vàng, Hồng, Tím, Cam, Xám, Be, Ghi, Nâu...
+                                                    </p>
                                                 </div>
 
                                                 <div>
@@ -2228,7 +2259,8 @@ const ProductManagement = () => {
                                                                     value={size.stock}
                                                                     onChange={(e) => {
                                                                         const updatedColors = [...newProduct.colors];
-                                                                        updatedColors[colorIndex].sizes[sizeIndex].stock = parseInt(e.target.value);
+                                                                        const value = e.target.value;
+                                                                        updatedColors[colorIndex].sizes[sizeIndex].stock = value === '' ? 0 : parseInt(value) || 0;
                                                                         setNewProduct({ ...newProduct, colors: updatedColors });
                                                                     }}
                                                                     className={`w-full p-3 rounded-lg border transition-colors ${isDarkMode

@@ -293,11 +293,7 @@ const ComboPage = () => {
       console.log('📤 Sending request to /api/cart/add-combo:', requestData);
 
       // Gọi API thêm combo
-      const response = await axiosInstance.post('/api/cart/add-combo', requestData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await axiosInstance.post('/api/cart/add-combo', requestData);
 
       console.log('📥 Response:', response.data);
 

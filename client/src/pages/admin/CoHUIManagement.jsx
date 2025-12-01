@@ -41,6 +41,14 @@ const CoHUIManagement = () => {
     const [isRunningCoIUM, setIsRunningCoIUM] = useState(false);
     const [analyticsData, setAnalyticsData] = useState(null);
     
+    // Real metrics from CoIUM
+    const [realMetrics, setRealMetrics] = useState({
+        runtime: 0,
+        memory: 0,
+        patternsCount: 0,
+        timestamp: null
+    });
+    
     // General recommendations state
     const [generalRecommendations, setGeneralRecommendations] = useState([]);
     const [totalGeneral, setTotalGeneral] = useState(0);
@@ -148,7 +156,23 @@ const CoHUIManagement = () => {
             toast.dismiss('coium-running');
             
             if (response.data.success) {
-                const { totalProducts, totalRecommendations, avgRecommendationsPerProduct } = response.data.data;
+                const { 
+                    totalProducts, 
+                    totalRecommendations, 
+                    avgRecommendationsPerProduct,
+                    runtime,
+                    memory,
+                    patternsCount,
+                    metricsTimestamp
+                } = response.data.data;
+                
+                // Update real metrics
+                setRealMetrics({
+                    runtime: runtime || 0,
+                    memory: memory || 0,
+                    patternsCount: patternsCount || 0,
+                    timestamp: metricsTimestamp || Date.now()
+                });
                 
                 // Generate mock analytics data (trong thực tế sẽ lấy từ Python)
                 const mockAnalytics = generateMockAnalytics();
@@ -159,9 +183,12 @@ const CoHUIManagement = () => {
                     `📊 Kết quả phân tích:\n` +
                     `• Số sản phẩm: ${totalProducts}\n` +
                     `• Tổng recommendations: ${totalRecommendations}\n` +
-                    `• Trung bình: ${avgRecommendationsPerProduct} sản phẩm/sản phẩm`,
+                    `• Trung bình: ${avgRecommendationsPerProduct} sản phẩm/sản phẩm\n` +
+                    `• Runtime: ${runtime}s\n` +
+                    `• Memory: ${Math.round(memory)} MB\n` +
+                    `• Patterns: ${patternsCount}`,
                     {
-                        autoClose: 8000,
+                        autoClose: 10000,
                         style: { whiteSpace: 'pre-line' }
                     }
                 );
@@ -829,17 +856,23 @@ const CoHUIManagement = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-blue-50'}`}>
                             <div className="text-sm text-gray-500 mb-1">Thời gian chạy trung bình</div>
-                            <div className="text-2xl font-bold text-blue-600">1.8s</div>
+                            <div className="text-2xl font-bold text-blue-600">
+                                {realMetrics.runtime > 0 ? `${realMetrics.runtime}s` : 'Chưa chạy'}
+                            </div>
                             <div className="text-xs text-gray-500 mt-1">Dense datasets (minCor=0.5)</div>
                         </div>
                         <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-green-50'}`}>
                             <div className="text-sm text-gray-500 mb-1">Bộ nhớ trung bình</div>
-                            <div className="text-2xl font-bold text-green-600">480 MB</div>
+                            <div className="text-2xl font-bold text-green-600">
+                                {realMetrics.memory > 0 ? `${Math.round(realMetrics.memory)} MB` : 'Chưa chạy'}
+                            </div>
                             <div className="text-xs text-gray-500 mt-1">Sparse datasets (minCor=0.5)</div>
                         </div>
                         <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-purple-50'}`}>
                             <div className="text-sm text-gray-500 mb-1">Patterns tìm được (CoIUM)</div>
-                            <div className="text-2xl font-bold text-purple-600">780</div>
+                            <div className="text-2xl font-bold text-purple-600">
+                                {realMetrics.patternsCount > 0 ? realMetrics.patternsCount.toLocaleString() : 'Chưa chạy'}
+                            </div>
                             <div className="text-xs text-gray-500 mt-1">minCor=0.5 (Optimal)</div>
                         </div>
                     </div>

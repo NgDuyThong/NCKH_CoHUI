@@ -52,6 +52,7 @@ const productColorRoutes = require('./routes/product-color.route');
 const aiRoutes = require('./routes/AI.route');
 const cohuiRoutes = require('./routes/cohui.route');
 const coiumProcessRoutes = require('./routes/coium-process.route');
+const receiptRoutes = require('./routes/receipt.route');
 
 // Mail
 const subscriptionRoutes = require('./mail/subscription.route');
@@ -83,15 +84,16 @@ app.use('/api/cohui', cohuiRoutes);// CoHUI Recommendation System
 app.use('/api/coium-process', coiumProcessRoutes);// CoIUM Process Runner
 
 // Customer routes (cần xác thực customer)
-app.use('/api/address', authenticateCustomer, addressRoutes);// Quản lý địa chỉ
-app.use('/api/cart', authenticateCustomer, cartRoutes);// Quản lý giỏ hàng
-app.use('/api/favorite', authenticateCustomer, favoriteRoutes);// Quản lý yêu thích
-app.use('/api/order-detail', authenticateCustomer, orderDetailRoutes);// Quản lý chi tiết đơn hàng
+// Spread array middleware để Express xử lý đúng
+app.use('/api/address', ...authenticateCustomer, addressRoutes);// Quản lý địa chỉ
+app.use('/api/cart', ...authenticateCustomer, cartRoutes);// Quản lý giỏ hàng
+app.use('/api/favorite', ...authenticateCustomer, favoriteRoutes);// Quản lý yêu thích
+app.use('/api/order-detail', ...authenticateCustomer, orderDetailRoutes);// Quản lý chi tiết đơn hàng
 app.use('/api/user', authenticateToken, userRoutes);// Quản lý thông tin cá nhân (cho cả customer và admin)
-app.use('/api/order', authenticateCustomer, orderRoutes);// Quản lý đơn hàng
+app.use('/api/order', ...authenticateCustomer, orderRoutes);// Quản lý đơn hàng
 app.use('/api/target', targetRoutes);// Quản lý target
-app.use('/api/user-coupon', authenticateCustomer, userCouponRoutes);// Quản lý mã giảm giá
-app.use('/api/user-notification', authenticateCustomer, userNotificationRoutes);// Quản lý thông báo
+app.use('/api/user-coupon', ...authenticateCustomer, userCouponRoutes);// Quản lý mã giảm giá
+app.use('/api/user-notification', ...authenticateCustomer, userNotificationRoutes);// Quản lý thông báo
 
 //!=================== Admin routes (cần xác thực admin hoặc nhân viên) ==================
 
@@ -106,33 +108,34 @@ app.use('/api/user-notification', authenticateCustomer, userNotificationRoutes);
 // * GET /api/reviews/admin/all - Lấy thống kê về đánh giá sản phẩm
 
 //? Trang Customer Management - Chỉ admin và customer_manager
-app.use('/api/admin/users', authenticateCustomerManager, userRoutes);// Quản lý người dùng
+app.use('/api/admin/users', ...authenticateCustomerManager, userRoutes);// Quản lý người dùng
 
 //? Trang Product Management - Chỉ admin và product_manager
 app.use('/api/products', productRoutes);// Routes cho cả customer và admin
-app.use('/api/admin/product-size-stock', authenticateProductManager, productSizeStockRoutes);// Quản lý size và số lượng tồn
-app.use('/api/admin/product-colors', authenticateProductManager, productColorRoutes);// Quản lý màu sắc
+app.use('/api/admin/product-size-stock', ...authenticateProductManager, productSizeStockRoutes);// Quản lý size và số lượng tồn
+app.use('/api/admin/product-colors', ...authenticateProductManager, productColorRoutes);// Quản lý màu sắc
+app.use('/api/receipts', ...authenticateProductManager, receiptRoutes);// Quản lý phiếu nhập kho
 //!ADMIN CALL THÊM /api/categories cho bộ lọc sản phẩm
 //!ADMIN CALL THÊM /api/targets cho bộ lọc sản phẩm
 
 //? Trang Order Management - Chỉ admin và order_manager
-app.use('/api/admin/orders', authenticateOrderManager, orderRoutes);// Quản lý đơn hàng
-app.use('/api/admin/order-details', authenticateOrderManager, orderDetailRoutes);// Quản lý chi tiết đơn hàng
+app.use('/api/admin/orders', ...authenticateOrderManager, orderRoutes);// Quản lý đơn hàng
+app.use('/api/admin/order-details', ...authenticateOrderManager, orderDetailRoutes);// Quản lý chi tiết đơn hàng
 
 //? Trang Promotion Management - Chỉ admin và promotion_manager
-app.use('/api/admin/promotions', authenticatePromotionManager, promotionRoutes);// Quản lý khuyến mãi
+app.use('/api/admin/promotions', ...authenticatePromotionManager, promotionRoutes);// Quản lý khuyến mãi
 //!ADMIN CALL THÊM /api/categories cho danh mục sản phẩm được áp dụng
 //!ADMIN CALL THÊM /api/products cho danh sách sản phẩm được áp dụng
 
 //? Trang Coupon Management - Chỉ admin và coupon_manager
-app.use('/api/admin/coupons', authenticateCouponManager, couponRoutes);// Quản lý mã giảm giá
+app.use('/api/admin/coupons', ...authenticateCouponManager, couponRoutes);// Quản lý mã giảm giá
 //!ADMIN CALL THÊM /api/categories
 
 //? Trang Notification Management - Chỉ admin và notification_manager
-app.use('/api/admin/notifications', authenticateNotificationManager, notificationRoutes);// Quản lý thông báo
+app.use('/api/admin/notifications', ...authenticateNotificationManager, notificationRoutes);// Quản lý thông báo
 //!ADMIN CALL THÊM /api/users/admin/users cho danh sách người dùng được thông báo
 
-app.use('/api/admin/categories', authenticateAdmin, categoryRoutes);// Quản lý danh mục
+app.use('/api/admin/categories', ...authenticateAdmin, categoryRoutes);// Quản lý danh mục
 
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/support', emailRoutes);// Gửi email

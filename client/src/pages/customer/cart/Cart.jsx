@@ -126,11 +126,7 @@ const Cart = () => {
       }
 
       // Gọi API lấy giỏ hàng
-      const response = await axiosInstance.get('/api/cart', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await axiosInstance.get('/api/cart');
 
       // Kiểm tra và xử lý dữ liệu trả về
       if (response.data.items && Array.isArray(response.data.items)) {
@@ -249,7 +245,7 @@ const Cart = () => {
 
       // Gọi API cập nhật số lượng
       const token = localStorage.getItem('customerToken');
-      await axiosInstance.put(`/api/cart/${cartID}`, { quantity: newQuantity }, { headers: { 'Authorization': `Bearer ${token}` } });
+      await axiosInstance.put(`/api/cart/${cartID}`, { quantity: newQuantity });
       window.dispatchEvent(new Event('cartChange')); // Emit event sau khi cập nhật thành công
     } catch (error) {
       console.error('Lỗi khi cập nhật số lượng(Cart.jsx):', error);
@@ -305,9 +301,7 @@ const Cart = () => {
       const token = localStorage.getItem('customerToken');
       await Promise.all(
         Array.from(selectedItems).map(cartID =>
-          axiosInstance.delete(`/api/cart/${cartID}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
+          axiosInstance.delete(`/api/cart/${cartID}`)
         )
       );
       fetchCart();
@@ -332,9 +326,7 @@ const Cart = () => {
 
     try {
       const token = localStorage.getItem('customerToken');
-      await axiosInstance.delete(`/api/cart/${deletingItem}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await axiosInstance.delete(`/api/cart/${deletingItem}`);
       fetchCart();
       setShowDeleteConfirm(false);
       setDeletingItem(null);
@@ -377,8 +369,7 @@ const Cart = () => {
           code: couponCode.trim(),
           orderValue: calculateTotal(), // Tổng giá trị đơn hàng
           categories: Array.from(selectedProductCategories) // Chuyển Set thành Array để gửi lên server
-        },
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        }
       );
 
       // Xử lý kết quả từ server
@@ -445,16 +436,9 @@ const Cart = () => {
         axiosInstance.get('/api/user-coupon/available', {
           params: {
             orderValue: calculateTotal()
-          },
-          headers: {
-            'Authorization': `Bearer ${token}`
           }
         }),
-        axiosInstance.get('/api/user-coupon/my-coupons', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        axiosInstance.get('/api/user-coupon/my-coupons')
       ]);
 
       if (availableResponse.data && Array.isArray(availableResponse.data) &&

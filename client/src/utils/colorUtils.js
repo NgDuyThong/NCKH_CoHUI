@@ -38,16 +38,23 @@ export const colorMap = {
   'Nâu tím': '#8B008B',
   
   // Nhóm màu Xanh - Đa dạng các tone màu
+  'Xanh': '#00FFFF',
+  'Xanh dương': '#0000FF',
   'Xanh dương đậm': '#00008B',
   'Xanh ghi đá': '#778899',
   'Xanh lá': '#008000',
   'Xanh lá đậm': '#006400',
+  'Xanh lá cây': '#228B22',
   'Xanh lơ': '#87CEEB',
   'Xanh matcha': '#9ACD32',
+  'Xanh nhạt': '#ADD8E6',
   'Xanh oliu': '#808000',
   'Xanh tím than': '#191970',
+  'Xanh da trời': '#87CEEB',
+  'Xanh navy': '#000080',
   
   // Nhóm màu Vàng - Tone màu ấm
+  'Vàng': '#FFFF00',
   'Vàng bơ': '#F0E68C',
   'Vàng mustard': '#FFD700',
   
@@ -57,12 +64,25 @@ export const colorMap = {
   'Đỏ tươi': '#FF4500',
   
   // Nhóm màu Tím - Tone màu lạnh
+  'Tím': '#800080',
   'Tím nhạt': '#E6E6FA',
   'Tím thẫm': '#4B0082',
   
   // Nhóm màu Cam - Tone màu ấm
   'Cam': '#FFA500',
   'Cam nhạt': '#FFDAB9',
+  
+  // Nhóm màu Xám
+  'Xám': '#808080',
+  'Xám nhạt': '#D3D3D3',
+  'Xám đậm': '#696969',
+  
+  // Nhóm màu Xanh lam/Navy
+  'Xanh lam': '#0000FF',
+  'Navy': '#000080',
+  
+  // Nhóm màu Hồng
+  'Hồng': '#FFC0CB',
   
   // Các màu khác
   'Rêu': '#556B2F',
@@ -113,4 +133,18 @@ export const getBackgroundSize = (colorName) => {
   if (colorName.startsWith('Họa tiết')) return '20px 20px';
   if (colorName.startsWith('Kẻ')) return '30px 30px';
   return 'auto';
+};
+
+// Lấy danh sách tất cả màu có sẵn (để gợi ý cho admin)
+export const getAllAvailableColors = () => {
+  return [
+    ...Object.keys(colorMap),
+    ...Object.keys(patternMap),
+    ...Object.keys(stripeMap)
+  ].sort();
+};
+
+// Kiểm tra màu có tồn tại trong hệ thống không
+export const isColorAvailable = (colorName) => {
+  return colorMap[colorName] || patternMap[colorName] || stripeMap[colorName];
 };

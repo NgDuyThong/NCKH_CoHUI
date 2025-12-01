@@ -16,6 +16,7 @@ import Coupons from "./pages/admin/CouponManagement";
 import Notifications from './pages/admin/NotificationManagement';
 import PromotionManagement from './pages/admin/PromotionManagement';
 import SettingManagement from './pages/admin/SettingManagement';
+import WarehouseReceipt from './pages/admin/WarehouseReceipt';
 
 // Customer Pages
 
@@ -141,6 +142,7 @@ function App() {
               <Route path="orders" element={<Orders />} />
               <Route path="cohui" element={<CoHUIManagement />} />
               <Route path="products" element={<Products />} />
+              <Route path="warehouse-receipt" element={<WarehouseReceipt />} />
               <Route path="coupons" element={<Coupons />} />
               <Route path="promotions" element={<PromotionManagement />} />
               <Route path="settings" element={<SettingManagement />} />

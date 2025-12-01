@@ -45,15 +45,17 @@ const productSchema = new Schema({
         default: 'default.png',
         validate: {
             validator: function (value) {
-                // Kiểm tra URL hình ảnh hoặc đuôi file hợp lệ
+                // Chấp nhận URL, file extension, hoặc Cloudinary publicId
                 return (
                     // Kiểm tra nếu là URL
                     /^https?:\/\/.+/.test(value) ||
                     // Hoặc kiểm tra đuôi file
-                    /\.(webp|jpg|jpeg|png|gif)$/i.test(value)
+                    /\.(webp|jpg|jpeg|png|gif)$/i.test(value) ||
+                    // Hoặc là Cloudinary publicId (bất kỳ string nào khác)
+                    typeof value === 'string' && value.trim().length > 0
                 );
             },
-            message: 'Định dạng hình ảnh không hợp lệ hoặc URL không hợp lệ'
+            message: 'Thumbnail không hợp lệ'
         }
     },
     isActivated: {

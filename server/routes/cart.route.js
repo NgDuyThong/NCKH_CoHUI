@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const CartController = require('../controllers/CartController');
-const { authenticateToken } = require('../middlewares/auth.middleware');
 
-// Tất cả routes đều yêu cầu đăng nhập
-router.use(authenticateToken);
+// Tất cả routes đã được áp dụng authenticateCustomer ở server.js
 
 // Routes cho giỏ hàng
 router.get('/', CartController.getCart); // Lấy giỏ hàng của user

@@ -152,13 +152,13 @@ const ProductDetail = () => {
 
         if (!sizeStock) return;
 
-        // Tạo SKU và kiểm tra trạng thái yêu thích
-        const SKU = `${product.productID}_${color.colorID}_${selectedSize}_${sizeStock.sizeStockID}`;
-        console.log('SKU:', SKU);
+        // Sử dụng SKU có sẵn từ API response thay vì tạo mới
+        const SKU = sizeStock.SKU || `${product.productID}_${color.colorID}_${selectedSize}_${sizeStock.sizeStockID}`;
+        console.log('SKU:', SKU, '(from API:', sizeStock.SKU ? 'yes' : 'no, generated)');
         
-        const response = await axiosInstance.get(`/api/favorite/check/${SKU}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // URL encode SKU để tránh lỗi với ký tự đặc biệt
+        const encodedSKU = encodeURIComponent(SKU);
+        const response = await axiosInstance.get(`/api/favorite/check/${encodedSKU}`);
 
         setIsFavorite(response.data.isFavorite);
       } catch (error) {
@@ -426,15 +426,11 @@ const ProductDetail = () => {
 
       if (userReview) {
         // Nếu đã có đánh giá thì cập nhật
-        await axiosInstance.put(`/api/reviews/${userReview.reviewID}`, reviewData, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        await axiosInstance.put(`/api/reviews/${userReview.reviewID}`, reviewData);
         toast.success('Đã cập nhật đánh giá thành công');
       } else {
         // Nếu chưa có thì tạo mới
-        await axiosInstance.post('/api/reviews', reviewData, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        await axiosInstance.post('/api/reviews', reviewData);
         toast.success('Đã gửi đánh giá thành công');
       }
 
@@ -488,11 +484,7 @@ const ProductDetail = () => {
             return;
         }
 
-        await axiosInstance.delete(`/api/reviews/${reviewID}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        await axiosInstance.delete(`/api/reviews/${reviewID}`);
         toast.success('Đã xóa đánh giá');
         setUserReview(null);
 
@@ -656,9 +648,9 @@ const ProductDetail = () => {
         return;
       }
 
-      // Tạo SKU từ các thông tin: productID_colorID_size_sizeStockID
-      const SKU = `${product.productID}_${color.colorID}_${selectedSize}_${sizeStock.sizeStockID}`;
-      console.log('SKU:', SKU);
+      // Sử dụng SKU có sẵn từ API response thay vì tạo mới
+      const SKU = sizeStock.SKU || `${product.productID}_${color.colorID}_${selectedSize}_${sizeStock.sizeStockID}`;
+      console.log('SKU:', SKU, '(from API:', sizeStock.SKU ? 'yes' : 'no, generated)');
 
       // Kiểm tra đăng nhập
       const token = localStorage.getItem('customerToken');
@@ -668,14 +660,12 @@ const ProductDetail = () => {
       }
 
       // Gọi API thêm vào giỏ hàng
+      console.log('📤 Sending POST to /api/cart/add with SKU:', SKU, 'quantity:', quantity);
       const response = await axiosInstance.post('/api/cart/add', {
         SKU,
         quantity
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
       });
+      console.log('📥 Response from /api/cart/add:', response);
 
       if (response.status === 201) {
         toast.success('Đã thêm vào giỏ hàng');
@@ -685,12 +675,17 @@ const ProductDetail = () => {
       }
     } catch (error) {
       console.error('Lỗi khi thêm vào giỏ hàng(ProductDetail.jsx):', error);
-      if (error.response && error.response.status === 401) {
+      if (error.response?.status === 401) {
         toast.error('Phiên đăng nhập đã hết hạn');
         localStorage.removeItem('customerToken');
+        sessionStorage.removeItem('customerToken');
         navigate('/login');
+      } else if (error.response?.status === 400) {
+        toast.error(error.response?.data?.message || 'Số lượng sản phẩm trong kho không đủ');
+      } else if (error.response?.status === 404) {
+        toast.error(error.response?.data?.message || 'Sản phẩm không tồn tại');
       } else {
-        toast.error(error.response?.data?.message || 'Không thể thêm vào giỏ hàng');
+        toast.error(error.response?.data?.message || 'Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
       }
     }
   };
@@ -829,11 +824,7 @@ const ProductDetail = () => {
       console.log('📤 Sending request to /api/cart/add-combo:', requestData);
 
       // Gọi API thêm combo
-      const response = await axiosInstance.post('/api/cart/add-combo', requestData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await axiosInstance.post('/api/cart/add-combo', requestData);
 
       console.log('📥 Response:', response.data);
 
@@ -960,46 +951,56 @@ const ProductDetail = () => {
 
       // Lấy thông tin color và size
       const color = product.colors.find(c => c.colorName === selectedColor);
-      console.log('Selected color:', color);
+      if (!color) {
+        toast.error('Không tìm thấy thông tin màu sắc');
+        return;
+      }
 
       const stockResponse = await axiosInstance.get(`/api/product-size-stock/color/${color.colorID}`);
       const sizeStock = stockResponse.data.find(item => item.size === selectedSize);
-      console.log('Size stock:', sizeStock);
 
       if (!sizeStock) {
         toast.error('Không tìm thấy thông tin tồn kho');
         return;
       }
 
-      // Tạo SKU
-      const SKU = `${product.productID}_${color.colorID}_${selectedSize}_${sizeStock.sizeStockID}`;
-      console.log('Toggle favorite for SKU:', SKU);
+      // Sử dụng SKU có sẵn từ API response thay vì tạo mới
+      const SKU = sizeStock.SKU || `${product.productID}_${color.colorID}_${selectedSize}_${sizeStock.sizeStockID}`;
+      console.log('Toggle favorite for SKU:', SKU, '(from API:', sizeStock.SKU ? 'yes' : 'no, generated)');
 
       if (isFavorite) {
-        // Nếu đã yêu thích thì xóa
-        await axiosInstance.delete(`/api/favorite/${SKU}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        toast.success('Đã xóa khỏi danh sách yêu thích');
-        window.dispatchEvent(new Event('wishlistChange'));
+        // Nếu đã yêu thích thì xóa - URL encode SKU để tránh lỗi với ký tự đặc biệt
+        const encodedSKU = encodeURIComponent(SKU);
+        const response = await axiosInstance.delete(`/api/favorite/${encodedSKU}`);
+        if (response.status === 200) {
+          toast.success('Đã xóa khỏi danh sách yêu thích');
+          window.dispatchEvent(new Event('wishlistChange'));
+          setIsFavorite(false);
+        }
       } else {
         // Nếu chưa yêu thích thì thêm
-        await axiosInstance.post('/api/favorite/add', { SKU }, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        toast.success('Đã thêm vào danh sách yêu thích');
-        window.dispatchEvent(new Event('wishlistChange'));
+        console.log('📤 Sending POST to /api/favorite/add with SKU:', SKU);
+        const response = await axiosInstance.post('/api/favorite/add', { SKU });
+        console.log('📥 Response from /api/favorite/add:', response);
+        if (response.status === 201) {
+          toast.success('Đã thêm vào danh sách yêu thích');
+          window.dispatchEvent(new Event('wishlistChange'));
+          setIsFavorite(true);
+        }
       }
-
-      // Cập nhật trạng thái yêu thích
-      setIsFavorite(!isFavorite);
     } catch (error) {
+      console.error('Lỗi khi toggle favorite:', error);
       if (error.response?.status === 401) {
         toast.error('Phiên đăng nhập đã hết hạn');
         localStorage.removeItem('customerToken');
+        sessionStorage.removeItem('customerToken');
         navigate('/login');
+      } else if (error.response?.status === 400) {
+        toast.error(error.response?.data?.message || 'Sản phẩm đã có trong danh sách yêu thích');
+      } else if (error.response?.status === 404) {
+        toast.error(error.response?.data?.message || 'Không tìm thấy sản phẩm');
       } else {
-        toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+        toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi thao tác với danh sách yêu thích');
       }
     }
   };
@@ -1017,8 +1018,6 @@ const ProductDetail = () => {
       const response = await axiosInstance.put(`/api/reviews/${reviewID}`, {
         rating: editingReview.rating,
         comment: editingReview.comment
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.status === 200) {

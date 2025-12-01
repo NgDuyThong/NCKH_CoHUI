@@ -33,10 +33,11 @@ targetSchema.virtual('products', {
 });
 
 // Static method để lấy số lượng sản phẩm theo target
+// Đếm TẤT CẢ sản phẩm (bao gồm cả deactivated) để đồng bộ với database
 targetSchema.statics.getProductCount = async function() {
     const Product = mongoose.model('Product');
     const result = await Product.aggregate([
-        { $match: { isActivated: true } }, // Chỉ đếm sản phẩm đang hoạt động
+        // BỎ filter isActivated để đếm TẤT CẢ sản phẩm
         {
             $group: {
                 _id: '$targetID',

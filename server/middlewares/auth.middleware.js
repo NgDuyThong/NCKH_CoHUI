@@ -4,11 +4,13 @@ const User = require('../models/User');
 // Middleware xác thực token
 const authenticateToken = async (req, res, next) => {
     try {
+        console.log(`🔐 AuthenticateToken - ${req.method} ${req.path}`);
         // Lấy token từ header
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
 
         if (!token) {
+            console.log('❌ No token found');
             return res.status(401).json({
                 success: false,
                 message: 'Không tìm thấy token xác thực'
@@ -22,6 +24,7 @@ const authenticateToken = async (req, res, next) => {
         const user = await User.findOne({ userID: decoded.userID });
         
         if (!user) {
+            console.log('❌ User not found');
             return res.status(401).json({
                 success: false,
                 message: 'Người dùng không tồn tại'
@@ -29,6 +32,7 @@ const authenticateToken = async (req, res, next) => {
         }
 
         if (user.isDisabled) {
+            console.log('❌ User is disabled');
             return res.status(403).json({
                 success: false,
                 message: 'Tài khoản đã bị vô hiệu hóa'
@@ -37,6 +41,7 @@ const authenticateToken = async (req, res, next) => {
 
         // Kiểm tra tài khoản có đang bị khóa không
         if (user.lockUntil && user.lockUntil > Date.now()) {
+            console.log('❌ User is locked');
             return res.status(403).json({
                 success: false,
                 message: 'Tài khoản đang bị khóa, vui lòng thử lại sau'
@@ -45,15 +50,18 @@ const authenticateToken = async (req, res, next) => {
 
         // Lưu thông tin user vào request
         req.user = user;
+        console.log('✅ Token authenticated for user:', user.userID, 'role:', user.role);
         next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
+            console.log('❌ Token expired');
             return res.status(401).json({
                 success: false,
                 message: 'Token đã hết hạn'
             });
         }
         
+        console.log('❌ Token invalid:', error.message);
         return res.status(401).json({
             success: false,
             message: 'Token không hợp lệ'
@@ -74,12 +82,15 @@ const isAdmin = (req, res, next) => {
 
 // Middleware kiểm tra role customer
 const isCustomer = (req, res, next) => {
+    console.log(`👤 isCustomer check - ${req.method} ${req.path}, user role:`, req.user?.role);
     if (req.user.role !== 'customer') {
+        console.log('❌ User is not a customer');
         return res.status(403).json({
             success: false,
             message: 'Bạn không có quyền truy cập tài nguyên này'
         });
     }
+    console.log('✅ User is a customer');
     next();
 };
 

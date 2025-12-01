@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const AddressController = require('../controllers/AddressController');
-const { authenticateToken } = require('../middlewares/auth.middleware');
 
-// Tất cả routes đều yêu cầu đăng nhập
-router.use(authenticateToken);
+// Tất cả routes đã được áp dụng authenticateCustomer ở server.js
 
 router.get('/', AddressController.getAddresses); // Lấy danh sách địa chỉ
 router.post('/', AddressController.addAddress); // Thêm địa chỉ mới
