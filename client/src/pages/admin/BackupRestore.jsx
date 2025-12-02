@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FiDatabase, 
   FiDownload, 
@@ -14,6 +14,8 @@ import {
   FiServer
 } from 'react-icons/fi';
 import { useTheme } from '../../contexts/AdminThemeContext';
+import axiosInstance from '../../utils/axios';
+import { toast } from 'react-toastify';
 
 const BackupRestore = () => {
   const { isDarkMode } = useTheme();
@@ -23,52 +25,179 @@ const BackupRestore = () => {
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [backupHistory, setBackupHistory] = useState([
-    {
-      id: 1,
-      name: 'backup_full_2024_12_02_14_30.sql',
-      type: 'Full Backup',
-      size: '45.2 MB',
-      date: '02/12/2024 14:30',
-      status: 'success'
-    },
-    {
-      id: 2,
-      name: 'backup_partial_2024_12_01_10_15.sql',
-      type: 'Partial Backup',
-      size: '12.8 MB',
-      date: '01/12/2024 10:15',
-      status: 'success'
-    },
-    {
-      id: 3,
-      name: 'backup_full_2024_11_30_08_00.sql',
-      type: 'Full Backup',
-      size: '43.5 MB',
-      date: '30/11/2024 08:00',
-      status: 'success'
+  const [backupHistory, setBackupHistory] = useState([]);
+  const [systemInfo, setSystemInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load dữ liệu khi component mount
+  useEffect(() => {
+    loadBackupList();
+    loadSystemInfo();
+  }, []);
+
+  // Load danh sách backup
+  const loadBackupList = async () => {
+    try {
+      const response = await axiosInstance.get('/api/admin/backup/list');
+      if (response.data.success) {
+        setBackupHistory(response.data.backups);
+      }
+    } catch (error) {
+      console.error('Error loading backup list:', error);
+      toast.error('Lỗi khi tải danh sách backup');
+    } finally {
+      setLoading(false);
     }
-  ]);
-
-  // Handlers (sẽ implement sau)
-  const handleCreateBackup = () => {
-    console.log('Creating backup...', selectedBackupType);
   };
 
-  const handleRestoreBackup = () => {
-    console.log('Restoring backup...', selectedFile);
+  // Load thông tin hệ thống
+  const loadSystemInfo = async () => {
+    try {
+      const response = await axiosInstance.get('/api/admin/backup/system-info');
+      if (response.data.success) {
+        setSystemInfo(response.data.system);
+      }
+    } catch (error) {
+      console.error('Error loading system info:', error);
+    }
   };
 
+  // Tạo backup
+  const handleCreateBackup = async () => {
+    try {
+      setIsCreatingBackup(true);
+      
+      const endpoint = selectedBackupType === 'full' 
+        ? '/api/admin/backup/create-full'
+        : '/api/admin/backup/create-partial';
+      
+      const response = await axiosInstance.post(endpoint);
+      
+      if (response.data.success) {
+        toast.success(response.data.message);
+        loadBackupList();
+        loadSystemInfo();
+      }
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi tạo backup');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  // Restore backup
+  const handleRestoreBackup = async () => {
+    if (!selectedFile) {
+      toast.warning('Vui lòng chọn file backup');
+      return;
+    }
+
+    // Xác nhận trước khi restore
+    if (!window.confirm('⚠️ CẢNH BÁO: Quá trình restore sẽ ghi đè toàn bộ dữ liệu hiện tại. Bạn có chắc chắn muốn tiếp tục?')) {
+      return;
+    }
+
+    try {
+      setIsRestoring(true);
+      
+      const formData = new FormData();
+      formData.append('backupFile', selectedFile);
+      
+      const response = await axiosInstance.post('/api/admin/backup/restore', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setSelectedFile(null);
+        loadSystemInfo();
+        
+        // Hiển thị thông tin chi tiết
+        const restored = response.data.restored;
+        setTimeout(() => {
+          toast.info(`Đã khôi phục ${restored.documents} documents từ ${restored.collections} collections`);
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi khôi phục dữ liệu');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  // Chọn file
   const handleFileSelect = (e) => {
-    setSelectedFile(e.target.files[0]);
+    const file = e.target.files[0];
+    if (file) {
+      // Kiểm tra kích thước file (max 100MB)
+      if (file.size > 100 * 1024 * 1024) {
+        toast.error('File quá lớn. Kích thước tối đa là 100MB');
+        return;
+      }
+      setSelectedFile(file);
+      toast.success(`Đã chọn file: ${file.name}`);
+    }
   };
 
-  const handleDeleteBackup = (id) => {
-    console.log('Deleting backup:', id);
+  // Xóa backup
+  const handleDeleteBackup = async (filename) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa backup "${filename}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await axiosInstance.delete(`/api/admin/backup/delete/${filename}`);
+      
+      if (response.data.success) {
+        toast.success(response.data.message);
+        loadBackupList();
+        loadSystemInfo();
+      }
+    } catch (error) {
+      console.error('Error deleting backup:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi xóa backup');
+    }
   };
 
-  const handleDownloadBackup = (id) => {
-    console.log('Downloading backup:', id);
+  // Download backup
+  const handleDownloadBackup = async (filename) => {
+    try {
+      toast.info('Đang chuẩn bị tải xuống...');
+      
+      const response = await axiosInstance.get(`/api/admin/backup/download/${filename}`, {
+        responseType: 'blob'
+      });
+      
+      // Tạo URL để download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast.success('Tải xuống thành công');
+    } catch (error) {
+      console.error('Error downloading backup:', error);
+      toast.error('Lỗi khi tải xuống backup');
+    }
+  };
+
+  // Format ngày giờ
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -95,7 +224,9 @@ const BackupRestore = () => {
             isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
           }`}>
             <FiCheckCircle className="text-xl" />
-            <span className="font-semibold">Hệ thống hoạt động bình thường</span>
+            <span className="font-semibold">
+              {systemInfo ? `${systemInfo.total_documents} documents` : 'Đang tải...'}
+            </span>
           </div>
         </div>
       </div>
@@ -334,12 +465,12 @@ const BackupRestore = () => {
               Lịch Sử Backup
             </h2>
           </div>
-          <button className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+          <button className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
             isDarkMode 
               ? 'bg-gray-700 hover:bg-gray-600 text-white' 
               : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-          }`}>
-            <FiRefreshCw className="inline mr-2" />
+          }`} onClick={() => { loadBackupList(); loadSystemInfo(); }}>
+            <FiRefreshCw className="inline" />
             Làm mới
           </button>
         </div>
@@ -370,83 +501,91 @@ const BackupRestore = () => {
               </tr>
             </thead>
             <tbody>
-              {backupHistory.map((backup) => (
-                <tr 
-                  key={backup.id}
-                  className={`border-b ${isDarkMode ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50'} transition-colors`}
-                >
-                  <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
-                    <div className="flex items-center gap-2">
-                      <FiDatabase className="text-blue-500" />
-                      <span className="font-medium">{backup.name}</span>
-                    </div>
-                  </td>
-                  <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      backup.type === 'Full Backup' 
-                        ? isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'
-                        : isDarkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'
-                    }`}>
-                      {backup.type}
-                    </span>
-                  </td>
-                  <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {backup.size}
-                  </td>
-                  <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {backup.date}
-                  </td>
-                  <td className={`py-4 px-4`}>
-                    <span className={`flex items-center gap-2 ${
-                      backup.status === 'success' 
-                        ? isDarkMode ? 'text-green-400' : 'text-green-600'
-                        : isDarkMode ? 'text-red-400' : 'text-red-600'
-                    }`}>
-                      <FiCheckCircle />
-                      Thành công
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleDownloadBackup(backup.id)}
-                        className={`p-2 rounded-lg transition-all ${
-                          isDarkMode 
-                            ? 'hover:bg-blue-900/50 text-blue-400' 
-                            : 'hover:bg-blue-100 text-blue-600'
-                        }`}
-                        title="Tải xuống"
-                      >
-                        <FiDownload className="text-lg" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteBackup(backup.id)}
-                        className={`p-2 rounded-lg transition-all ${
-                          isDarkMode 
-                            ? 'hover:bg-red-900/50 text-red-400' 
-                            : 'hover:bg-red-100 text-red-600'
-                        }`}
-                        title="Xóa"
-                      >
-                        <FiTrash2 className="text-lg" />
-                      </button>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="py-8 text-center">
+                    <FiRefreshCw className={`animate-spin text-4xl mx-auto mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                    <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Đang tải...</p>
                   </td>
                 </tr>
-              ))}
+              ) : backupHistory.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="py-12 text-center">
+                    <FiDatabase className={`text-6xl mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                    <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Chưa có bản backup nào
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                backupHistory.map((backup) => (
+                  <tr 
+                    key={backup.id}
+                    className={`border-b ${isDarkMode ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50'} transition-colors`}
+                  >
+                    <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
+                      <div className="flex items-center gap-2">
+                        <FiDatabase className="text-blue-500" />
+                        <span className="font-medium">{backup.name}</span>
+                      </div>
+                    </td>
+                    <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        backup.type === 'full' 
+                          ? isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'
+                          : isDarkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {backup.type === 'full' ? 'Full Backup' : 'Partial Backup'}
+                      </span>
+                    </td>
+                    <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {backup.size}
+                    </td>
+                    <td className={`py-4 px-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {formatDate(backup.created_at)}
+                    </td>
+                    <td className={`py-4 px-4`}>
+                      <span className={`flex items-center gap-2 ${
+                        isDarkMode ? 'text-green-400' : 'text-green-600'
+                      }`}>
+                        <FiCheckCircle />
+                        Thành công
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleDownloadBackup(backup.name)}
+                          className={`p-2 rounded-lg transition-all ${
+                            isDarkMode 
+                              ? 'hover:bg-blue-900/50 text-blue-400' 
+                              : 'hover:bg-blue-100 text-blue-600'
+                          }`}
+                          title="Tải xuống"
+                        >
+                          <FiDownload className="text-lg" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBackup(backup.name)}
+                          className={`p-2 rounded-lg transition-all ${
+                            isDarkMode 
+                              ? 'hover:bg-red-900/50 text-red-400' 
+                              : 'hover:bg-red-100 text-red-600'
+                          }`}
+                          title="Xóa"
+                        >
+                          <FiTrash2 className="text-lg" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Empty State */}
-        {backupHistory.length === 0 && (
-          <div className="text-center py-12">
-            <FiDatabase className={`text-6xl mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
-            <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Chưa có bản backup nào
-            </p>
-          </div>
-        )}
+        {/* Empty State - Đã xử lý bên trong tbody */}
       </div>
     </div>
   );

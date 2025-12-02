@@ -417,6 +417,7 @@ const OrderManagement = () => {
                     orderID: item.order.orderID,
                     customerName: item.order.fullname,
                     customerAddress: item.order.address,
+                    customerCity: item.order.city || 'Thanh pho Ho Chi Minh, Viet Nam',
                     items: item.details.map(detail => ({
                         productName: detail.product?.name || 'San pham khong xac dinh',
                         color: detail.product?.color?.colorName || '',

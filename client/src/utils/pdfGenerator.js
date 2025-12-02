@@ -452,77 +452,124 @@ export const generateDailyInvoicePDF = (dailyData) => {
     // Header
     drawCompanyHeader(doc, pageWidth);
     
-    let yPos = 35;
-    drawTitle(doc, 'HOA DON BAN HANG', pageWidth, yPos);
-    yPos += 8;
-    
-    const invoiceDate = new Date(dailyData.date);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text(`Ngay: ${invoiceDate.getDate()}/${invoiceDate.getMonth() + 1}/${invoiceDate.getFullYear()}`, pageWidth / 2, yPos, { align: 'center' });
+    doc.text('Dia chi: ' + (removeVietnameseTones(dailyData.shopAddress) || '484 Le Van Sy, Phuong 14, Quan 3, TP. Ho Chi Minh'), pageWidth / 2, 27, { align: 'center' });
+    doc.text('DT: ' + (dailyData.shopPhone || '0123456789'), pageWidth / 2, 32, { align: 'center' });
+    
+    let yPos = 45;
+    drawTitle(doc, 'HOA DON BAN HANG', pageWidth, yPos);
     yPos += 12;
     
     let grandTotal = 0;
+    let totalQuantity = 0;
     
-    dailyData.orders.forEach((orderData) => {
-        if (yPos > pageHeight - 80) {
+    dailyData.orders.forEach((orderData, orderIndex) => {
+        if (yPos > pageHeight - 100) {
             doc.addPage();
-            yPos = 20;
+            drawCompanyHeader(doc, pageWidth);
+            doc.setFontSize(10);
+            doc.text('Dia chi: ' + (removeVietnameseTones(dailyData.shopAddress) || '484 Le Van Sy, Phuong 14, Quan 3, TP. Ho Chi Minh'), pageWidth / 2, 27, { align: 'center' });
+            doc.text('DT: ' + (dailyData.shopPhone || '0123456789'), pageWidth / 2, 32, { align: 'center' });
+            yPos = 45;
+            drawTitle(doc, 'HOA DON BAN HANG', pageWidth, yPos);
+            yPos += 12;
         }
         
+        // Thông tin khách hàng
         doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Don hang #${orderData.orderID}`, 15, yPos);
-        yPos += 5;
-        
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(`KH: ${removeVietnameseTones(orderData.customerName) || 'N/A'}`, 15, yPos);
-        yPos += 7;
+        doc.setTextColor(0, 0, 0);
+        doc.text('Ten khach hang: ' + (removeVietnameseTones(orderData.customerName) || '...'), 15, yPos);
+        yPos += 6;
+        doc.text('Dia chi: ' + (removeVietnameseTones(orderData.customerAddress) || orderData.customerCity || 'Thanh pho Ho Chi Minh, Viet Nam'), 15, yPos);
+        yPos += 10;
         
-        const tableData = orderData.items.map((item, index) => [
-            index + 1,
-            removeVietnameseTones(item.productName) + (item.color ? ' - ' + removeVietnameseTones(item.color) : '') + (item.size ? ' (' + item.size + ')' : ''),
-            item.quantity,
-            formatCurrency(item.price),
-            formatCurrency(item.price * item.quantity)
-        ]);
+        // Bảng sản phẩm
+        const tableData = orderData.items.map((item, index) => {
+            let productInfo = removeVietnameseTones(item.productName);
+            if (item.color) productInfo += ' - ' + removeVietnameseTones(item.color);
+            if (item.size) productInfo += ' (' + item.size + ')';
+            
+            totalQuantity += item.quantity;
+            
+            return [
+                index + 1,
+                productInfo,
+                'Cai',
+                item.quantity,
+                formatCurrency(item.price),
+                formatCurrency(item.price * item.quantity)
+            ];
+        });
         
-        const orderTotal = orderData.finalPrice || orderData.items.reduce((s, i) => s + i.price * i.quantity, 0);
-        tableData.push(['', 'TONG', '', '', formatCurrency(orderTotal)]);
-        grandTotal += orderTotal;
+        // Tổng tiền đơn hàng
+        const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const finalAmount = orderData.finalPrice || orderData.paymentPrice || subtotal;
+        const orderQuantity = orderData.items.reduce((s, i) => s + i.quantity, 0);
+        
+        tableData.push(['', 'CONG', '', orderQuantity, '', formatCurrency(subtotal)]);
+        if (orderData.discount > 0) {
+            tableData.push(['', 'Giam gia', '', '', '', '-' + formatCurrency(orderData.discount)]);
+        }
+        tableData.push(['', 'TONG CONG', '', '', '', formatCurrency(finalAmount)]);
+        
+        grandTotal += finalAmount;
         
         const tableStyles = getDefaultTableStyles();
         autoTable(doc, {
             startY: yPos,
-            head: [['STT', 'San pham', 'SL', 'Don gia', 'Thanh tien']],
+            head: [['STT', 'Ten hang hoa', 'DVT', 'SL', 'Don gia', 'Thanh tien']],
             body: tableData,
             ...tableStyles,
-            styles: { ...tableStyles.styles, fontSize: 8, cellPadding: 3 },
             columnStyles: {
-                0: { cellWidth: 10, halign: 'center' },
-                1: { cellWidth: 80, halign: 'left' },
+                0: { cellWidth: 12, halign: 'center' },
+                1: { cellWidth: 70, halign: 'left', fontStyle: 'bold' },
                 2: { cellWidth: 15, halign: 'center' },
-                3: { cellWidth: 30, halign: 'right' },
-                4: { cellWidth: 35, halign: 'right' }
+                3: { cellWidth: 18, halign: 'center' },
+                4: { cellWidth: 30, halign: 'right' },
+                5: { cellWidth: 35, halign: 'right' }
             },
             didParseCell: function(cellData) {
-                if (cellData.row.index === tableData.length - 1) {
+                const lastRows = orderData.discount > 0 ? 3 : 2;
+                if (cellData.row.index >= tableData.length - lastRows) {
                     cellData.cell.styles.fontStyle = 'bold';
-                    cellData.cell.styles.fillColor = [255, 250, 205];
+                    if (cellData.row.index === tableData.length - 1) {
+                        cellData.cell.styles.fillColor = [255, 250, 205];
+                        cellData.cell.styles.textColor = [0, 51, 102];
+                        cellData.cell.styles.fontSize = 10;
+                    }
                 }
             }
         });
         
-        yPos = doc.lastAutoTable.finalY + 10;
+        yPos = doc.lastAutoTable.finalY + 15;
+        
+        // Chữ ký cho mỗi đơn hàng
+        const today = new Date();
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Ngay ${today.getDate()} thang ${today.getMonth() + 1} nam ${today.getFullYear()}`, pageWidth - 15, yPos, { align: 'right' });
+        yPos += 10;
+        
+        const signatures = [
+            { title: 'KHACH HANG' },
+            { title: 'NGUOI BAN HANG' }
+        ];
+        drawSignatures(doc, signatures, pageWidth, yPos);
+        
+        yPos = yPos + 40;
+        
+        // Thêm khoảng cách giữa các đơn hàng
+        if (orderIndex < dailyData.orders.length - 1) {
+            yPos += 10;
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.5);
+            doc.line(15, yPos, pageWidth - 15, yPos);
+            yPos += 15;
+        }
     });
-    
-    // Tổng cộng tất cả đơn hàng
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 51, 102);
-    doc.text(`TONG CONG: ${formatCurrency(grandTotal)} VND`, pageWidth - 15, yPos, { align: 'right' });
     
     const fileName = `HoaDonNgay_${dailyData.date || Date.now()}.pdf`;
     doc.save(fileName);
