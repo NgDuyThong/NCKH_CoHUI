@@ -52,6 +52,7 @@ const productColorRoutes = require('./routes/product-color.route');
 const aiRoutes = require('./routes/AI.route');
 const cohuiRoutes = require('./routes/cohui.route');
 const coiumProcessRoutes = require('./routes/coium-process.route');
+const backupRoutes = require('./routes/backup.route');
 const receiptRoutes = require('./routes/receipt.route');
 
 // Mail
@@ -136,6 +137,9 @@ app.use('/api/admin/notifications', ...authenticateNotificationManager, notifica
 //!ADMIN CALL THÊM /api/users/admin/users cho danh sách người dùng được thông báo
 
 app.use('/api/admin/categories', ...authenticateAdmin, categoryRoutes);// Quản lý danh mục
+
+//? Trang Backup & Restore - Chỉ admin
+app.use('/api/admin/backup', ...authenticateAdmin, backupRoutes);// Backup & Restore
 
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/support', emailRoutes);// Gửi email
