@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiUsers, FiPackage, FiShoppingCart, FiSettings, FiSun, FiMoon, FiLogOut, FiTag, FiBell, FiBarChart2, FiUser } from 'react-icons/fi';
+import { FiUsers, FiPackage, FiShoppingCart, FiSettings, FiSun, FiMoon, FiLogOut, FiTag, FiBell, FiBarChart2, FiUser, FiDatabase } from 'react-icons/fi';
 import { BsShop } from 'react-icons/bs';
 
 // Danh sách các mục menu trong sidebar với phân quyền
@@ -52,6 +52,12 @@ const menuItems = [
       icon: <FiBell />,
       path: '/admin/notifications',
       roles: ['admin', 'notification_manager']
+   },
+   {
+      title: 'Backup & Restore', // Sao lưu và khôi phục dữ liệu
+      icon: <FiDatabase />,
+      path: '/admin/backup',
+      roles: ['admin'] // Chỉ admin mới có quyền backup/restore
    },
    {
       title: 'Cài đặt hệ thống', // Thiết lập cấu hình hệ thống

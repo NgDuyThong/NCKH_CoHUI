@@ -17,6 +17,7 @@ import Notifications from './pages/admin/NotificationManagement';
 import PromotionManagement from './pages/admin/PromotionManagement';
 import SettingManagement from './pages/admin/SettingManagement';
 import WarehouseReceipt from './pages/admin/WarehouseReceipt';
+import BackupRestore from './pages/admin/BackupRestore';
 
 // Customer Pages
 
@@ -145,6 +146,7 @@ function App() {
               <Route path="warehouse-receipt" element={<WarehouseReceipt />} />
               <Route path="coupons" element={<Coupons />} />
               <Route path="promotions" element={<PromotionManagement />} />
+              <Route path="backup" element={<BackupRestore />} />
               <Route path="settings" element={<SettingManagement />} />
               <Route path="notifications" element={<Notifications />} />
             </Route>

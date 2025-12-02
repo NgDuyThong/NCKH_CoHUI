@@ -4,6 +4,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { FaChevronRight, FaHome } from 'react-icons/fa';
 import { useTheme } from '../contexts/CustomerThemeContext';
 
+// Import Google Fonts
+import '@fontsource/montserrat/700.css'; // Bold
+import '@fontsource/montserrat/800.css'; // Extra Bold
+import '@fontsource/montserrat/900.css'; // Black
+import '@fontsource/poppins/600.css'; // Semi Bold
+import '@fontsource/poppins/700.css'; // Bold
+
 const PageBanner = ({
   icon: Icon,
   title,
@@ -102,44 +109,89 @@ const PageBanner = ({
         </div>
 
         {/* Container nội dung */}
-        <div className="relative container mx-auto px-4 py-12 sm:py-14">
-          <div className="max-w-4xl mx-auto">
-            {/* Icon với background hiệu ứng động */}
-            {Icon && (
-              <div className="relative mb-4 inline-block">
-                <div className="absolute inset-0 bg-white/20 rounded-full blur-xl animate-pulse"></div>
-                <div className="relative bg-white/10 backdrop-blur-sm p-3 rounded-full">
-                  <Icon className="w-8 h-8 text-white" />
-                </div>
+        <div className="relative container mx-auto px-4 py-10 sm:py-12">
+          <div className="max-w-4xl mx-auto text-center">
+            {/* Decorative elements trên title */}
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="hidden sm:block h-[2px] w-12 bg-gradient-to-r from-transparent to-white/50 rounded-full"></div>
+              <div className="flex gap-1.5">
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                <div className="w-1.5 h-1.5 bg-white/70 rounded-full animate-pulse animation-delay-200"></div>
+                <div className="w-1.5 h-1.5 bg-white/50 rounded-full animate-pulse animation-delay-400"></div>
               </div>
-            )}
+              <div className="hidden sm:block h-[2px] w-12 bg-gradient-to-l from-transparent to-white/50 rounded-full"></div>
+            </div>
 
-            {/* Tiêu đề với đường chữ nổi */}
-            <h1 className="relative text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3 tracking-tight inline-block">
-              {title.toUpperCase()}
-              <div className="absolute bottom-0 left-0 w-full h-1 bg-white/30 rounded overflow-hidden">
-                <div className="h-full w-1/3 bg-white rounded animate-slide"></div>
-              </div>
+            {/* Tiêu đề với đường chữ nổi - ENHANCED */}
+            <h1 
+              className="relative text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white mb-3 tracking-tight animate-fade-in-up"
+              style={{ 
+                fontFamily: "'Montserrat', sans-serif",
+                textShadow: '0 4px 20px rgba(0,0,0,0.3), 0 0 40px rgba(255,255,255,0.2), 0 0 60px rgba(255,255,255,0.1)',
+                letterSpacing: '0.02em'
+              }}
+            >
+              {/* Glow effect phía sau chữ */}
+              <span className="absolute inset-0 blur-2xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 animate-pulse-slow"></span>
+              
+              {/* Text với gradient overlay */}
+              <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-white via-blue-50 to-white bg-clip-text text-transparent drop-shadow-2xl animate-shimmer-text">
+                  {title.toUpperCase()}
+                </span>
+                
+                {/* Underline animation với sparkle */}
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-2/3 h-1 bg-gradient-to-r from-transparent via-white to-transparent rounded-full overflow-hidden">
+                  <div className="h-full w-1/3 bg-gradient-to-r from-white/0 via-white to-white/0 rounded-full animate-slide-underline shadow-lg shadow-white/50"></div>
+                </div>
+                
+                {/* Sparkles xung quanh chữ */}
+                <div className="absolute -top-1 left-[10%] w-1 h-1 bg-white rounded-full animate-twinkle"></div>
+                <div className="absolute -top-2 right-[15%] w-1 h-1 bg-blue-200 rounded-full animate-twinkle animation-delay-500"></div>
+                <div className="absolute top-1/2 -right-3 w-1 h-1 bg-purple-200 rounded-full animate-twinkle animation-delay-300"></div>
+                <div className="absolute -bottom-0.5 left-[20%] w-1 h-1 bg-pink-200 rounded-full animate-twinkle animation-delay-600"></div>
+              </span>
             </h1>
 
-            {/* Chữ mờ với gradient */}
+            {/* Chữ mờ với gradient - ENHANCED */}
             {subtitle && (
-              <p className={`text-base sm:text-lg ${theme === 'tet'
-                ? 'text-yellow-200'
-                : 'text-blue-200'
-                } font-medium mt-2`}>
-                {subtitle}
+              <p 
+                className={`text-base sm:text-lg md:text-xl font-semibold mt-4 animate-fade-in ${theme === 'tet'
+                  ? 'text-yellow-100'
+                  : 'text-blue-100'
+                }`}
+                style={{ 
+                  fontFamily: "'Poppins', sans-serif",
+                  textShadow: '0 2px 10px rgba(0,0,0,0.2), 0 4px 20px rgba(255,255,255,0.1)',
+                  letterSpacing: '0.01em',
+                  animationDelay: '0.2s'
+                }}
+              >
+                <span className="relative inline-block">
+                  {subtitle}
+                  {/* Subtle underline */}
+                  <div className="absolute -bottom-0.5 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-current to-transparent opacity-50"></div>
+                </span>
               </p>
             )}
+
+            {/* Decorative elements dưới subtitle */}
+            <div className="flex items-center justify-center gap-2 mt-4 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+              <div className="w-1 h-1 bg-white/60 rounded-full"></div>
+              <div className="w-6 h-[1px] bg-gradient-to-r from-white/40 to-transparent"></div>
+              <div className="w-1 h-1 bg-white/60 rounded-full"></div>
+              <div className="w-6 h-[1px] bg-gradient-to-l from-white/40 to-transparent"></div>
+              <div className="w-1 h-1 bg-white/60 rounded-full"></div>
+            </div>
 
             {/* Nội dung bổ sung */}
             {extraContent}
           </div>
         </div>
 
-        {/* Đường chia hiệu ứng động */}
+        {/* Đường chia hiệu ứng động - SHORTENED */}
         <div className="absolute bottom-0 left-0 right-0">
-          <svg className="w-full h-12 sm:h-16" viewBox="0 0 1200 120" preserveAspectRatio="none">
+          <svg className="w-full h-8 sm:h-10" viewBox="0 0 1200 120" preserveAspectRatio="none">
             <path
               d="M0,0 C150,90 400,120 600,100 C800,80 1050,40 1200,100 L1200,120 L0,120 Z"
               className="fill-[#F8FAFC]"
@@ -207,8 +259,9 @@ const PageBanner = ({
       <style>
         {`
         @keyframes float-slow {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(-10px, -10px); }
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          33% { transform: translate(-15px, -15px) rotate(-5deg); }
+          66% { transform: translate(15px, -10px) rotate(5deg); }
         }
 
         @keyframes shimmer {
@@ -216,21 +269,111 @@ const PageBanner = ({
           100% { transform: translateX(100%); }
         }
 
+        @keyframes shimmer-text {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+
         @keyframes slide {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(200%); }
         }
 
+        @keyframes slide-underline {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.5); }
+        }
+
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.8; }
+        }
+
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
         .animate-float-slow {
-          animation: float-slow 6s ease-in-out infinite;
+          animation: float-slow 8s ease-in-out infinite;
         }
 
         .animate-shimmer {
-          animation: shimmer 2s linear infinite;
+          animation: shimmer 3s linear infinite;
+        }
+
+        .animate-shimmer-text {
+          background-size: 200% auto;
+          animation: shimmer-text 3s linear infinite;
         }
 
         .animate-slide {
           animation: slide 2s linear infinite;
+        }
+
+        .animate-slide-underline {
+          animation: slide-underline 3s ease-in-out infinite;
+        }
+
+        .animate-spin-slow {
+          animation: spin-slow 10s linear infinite;
+        }
+
+        .animate-twinkle {
+          animation: twinkle 2s ease-in-out infinite;
+        }
+
+        .animate-pulse-slow {
+          animation: pulse-slow 3s ease-in-out infinite;
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-fade-in-up {
+          animation: fade-in-up 0.8s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animation-delay-200 {
+          animation-delay: 0.2s;
+        }
+
+        .animation-delay-300 {
+          animation-delay: 0.3s;
+        }
+
+        .animation-delay-400 {
+          animation-delay: 0.4s;
+        }
+
+        .animation-delay-500 {
+          animation-delay: 0.5s;
+        }
+
+        .animation-delay-600 {
+          animation-delay: 0.6s;
+        }
+
+        .animation-delay-700 {
+          animation-delay: 0.7s;
         }
 
         .animation-delay-2000 {
