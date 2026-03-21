@@ -155,12 +155,12 @@ const PageBanner = ({
 
             {/* Chữ mờ với gradient - ENHANCED */}
             {subtitle && (
-              <p 
+              <div
                 className={`text-base sm:text-lg md:text-xl font-semibold mt-4 animate-fade-in ${theme === 'tet'
                   ? 'text-yellow-100'
                   : 'text-blue-100'
                 }`}
-                style={{ 
+                style={{
                   fontFamily: "'Poppins', sans-serif",
                   textShadow: '0 2px 10px rgba(0,0,0,0.2), 0 4px 20px rgba(255,255,255,0.1)',
                   letterSpacing: '0.01em',
@@ -172,7 +172,7 @@ const PageBanner = ({
                   {/* Subtle underline */}
                   <div className="absolute -bottom-0.5 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-current to-transparent opacity-50"></div>
                 </span>
-              </p>
+              </div>
             )}
 
             {/* Decorative elements dưới subtitle */}

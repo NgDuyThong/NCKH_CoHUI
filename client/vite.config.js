@@ -11,6 +11,9 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: 'localhost',
+    },
+    fs: {
+      allow: ['..']
     }
   }
 })

@@ -1,0 +1,10 @@
+{
+  "runtime_ms": 79,
+  "memory_mb": 26,
+  "cohui_count": 14,
+  "total_transactions": 25777,
+  "total_items": 112,
+  "minutil": 181280980,
+  "mincor": 0.5,
+  "cohuis": []
+}
