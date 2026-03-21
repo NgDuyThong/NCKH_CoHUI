@@ -1,0 +1,10 @@
+Thuat toan CoHUI-Miner
+Database: mushroom_utility
+Transaction count: 8124
+==================================
+-----------------------------------
+Mincor=0.4
+MinUtil 50000 
+Runtime 8995 
+MemoryUsage 226 
+CoHUICount 39059 

@@ -17,8 +17,8 @@ async function testProductRecommendations() {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('✅ Kết nối thành công!\n');
 
-        // Load correlation recommendations từ CoIUM
-        const correlationPath = path.join(__dirname, '../../CoIUM_Final/correlation_recommendations.json');
+        // Load correlation recommendations từ CoHUI (built by build-correlation-from-cohui.js)
+        const correlationPath = path.join(__dirname, 'correlation_recommendations.json');
         const correlations = JSON.parse(fs.readFileSync(correlationPath, 'utf8'));
         
         console.log(`📊 Đã load correlation recommendations cho ${Object.keys(correlations).length} sản phẩm\n`);

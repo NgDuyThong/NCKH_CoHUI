@@ -1,0 +1,31 @@
+Thuat toan CoHUI-Miner
+Database: accidents_utility
+Transaction count: 340183
+==================================
+-----------------------------------
+Mincor=0.62
+MinUtil 12000000 
+Runtime 418004 
+MemoryUsage 1399 
+CoHUICount 3161 
+
+-----------------------------------
+Mincor=0.62
+MinUtil 16000000 
+Runtime 198813 
+MemoryUsage 1395 
+CoHUICount 1734 
+
+-----------------------------------
+Mincor=0.85
+MinUtil 34000 
+Runtime 14412787 
+MemoryUsage 828 
+CoHUICount 270116 
+
+-----------------------------------
+Mincor=0.85
+MinUtil 34000 
+Runtime 13306023 
+MemoryUsage 792 
+CoHUICount 270116 

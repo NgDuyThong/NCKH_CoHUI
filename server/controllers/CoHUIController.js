@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const Order = require('../models/Order');
@@ -9,8 +9,8 @@ const ProductColor = require('../models/ProductColor');
 
 /**
  * Controller cho CoHUI Recommendation System
- * Tích hợp thuật toán CoHUI Python vào Node.js
- * Updated: Sử dụng kết quả từ CoIUM analysis
+ * Tích hợp thuật toán CoHUI Cải Tiến (Java) thay thế Python
+ * Updated: Sử dụng kết quả từ CoHUI analysis
  */
 
 // Load correlation map từ CoIUM (cache trong memory)
@@ -148,53 +148,84 @@ class CoHUIController {
     }
 
     /**
-     * Gọi Python script để chạy thuật toán CoHUI
-     * Sử dụng stdin để truyền data lớn (tránh ENAMETOOLONG)
+     * Gọi Java CoHUI algorithm để phân tích real-time
+     * Tạo temp file chứa dữ liệu → chạy JAR → đọc JSON output
      */
-    static async callPythonService(inputData) {
-        return new Promise((resolve, reject) => {
-            // Đường dẫn đến Python script
-            const pythonScript = path.join(__dirname, '../../CoIUM_Final/recommendation_service.py');
-            
-            // Gọi Python KHÔNG truyền data qua argument
-            const pythonProcess = spawn('python', [pythonScript], {
-                cwd: path.join(__dirname, '../../CoIUM_Final')
-            });
+    static async callJavaService(ordersData, options = {}) {
+        const { minutil = 0.001, mincor = 0.3 } = options;
+        const javaPath = path.join(__dirname, '../../CoHUI_CaiTien_RU_LA_KUL');
+        const jarPath = path.join(javaPath, 'CoHUI_Server.jar');
+        const tempFile = path.join(__dirname, '../CoIUM', `temp_analysis_${Date.now()}.dat`);
 
-            let dataString = '';
-            let errorString = '';
+        try {
+            // Build utility format từ orders data
+            let totalDatasetUtility = 0;
+            const lines = [];
 
-            pythonProcess.stdout.on('data', (data) => {
-                dataString += data.toString();
-            });
-
-            pythonProcess.stderr.on('data', (data) => {
-                errorString += data.toString();
-            });
-
-            pythonProcess.on('close', (code) => {
-                if (code !== 0) {
-                    console.error('Python stderr:', errorString);
-                    reject(new Error(`Python process exited with code ${code}: ${errorString}`));
-                } else {
-                    try {
-                        const result = JSON.parse(dataString);
-                        resolve(result);
-                    } catch (error) {
-                        console.error('Failed to parse Python output:', dataString);
-                        reject(new Error('Invalid JSON from Python service'));
+            for (const order of ordersData) {
+                // Deduplicate by productID within order
+                const deduped = {};
+                for (const item of order.items) {
+                    if (deduped[item.productID]) {
+                        deduped[item.productID].quantity += (item.quantity || 1);
+                    } else {
+                        deduped[item.productID] = {
+                            productID: item.productID,
+                            quantity: item.quantity || 1,
+                            price: item.price || 0
+                        };
                     }
                 }
-            });
 
-            pythonProcess.on('error', (error) => {
-                reject(new Error(`Failed to start Python process: ${error.message}`));
-            });
-            
-            // Ghi data vào stdin thay vì argument
-            pythonProcess.stdin.write(JSON.stringify(inputData));
-            pythonProcess.stdin.end();
-        });
+                const sorted = Object.values(deduped).sort((a, b) => a.productID - b.productID);
+                const ids = sorted.map(e => e.productID);
+                const utilities = sorted.map(e => e.price * e.quantity);
+                const transactionUtility = utilities.reduce((sum, u) => sum + u, 0);
+                totalDatasetUtility += transactionUtility;
+
+                lines.push(`${ids.join(' ')}:${transactionUtility}:${utilities.join(' ')}`);
+            }
+
+            // Write temp file
+            fs.writeFileSync(tempFile, lines.join('\n'), 'utf8');
+
+            // Calculate absolute minUtil
+            const absMinUtil = Math.max(1, Math.round(minutil * totalDatasetUtility));
+            const maxTransactions = 99999;
+
+            // Run Java
+            const cmd = `java -jar "${jarPath}" "${tempFile}" ${maxTransactions} ${absMinUtil} ${mincor}`;
+            console.log(`   Java command: ${cmd}`);
+
+            const output = execSync(cmd, {
+                cwd: javaPath,
+                maxBuffer: 50 * 1024 * 1024,
+                timeout: 120000 // 2 minutes
+            }).toString();
+
+            const result = JSON.parse(output);
+
+            return {
+                success: true,
+                totalPatterns: result.cohui_count,
+                runtime_ms: result.runtime_ms,
+                memory_mb: result.memory_mb,
+                cohuis: result.cohuis || [],
+                recommendations: (result.cohuis || []).slice(0, 100).map(c => ({
+                    items: c.items,
+                    utility: c.utility,
+                    kulc: c.kulc
+                }))
+            };
+        } catch (error) {
+            console.error('Java service error:', error.message);
+            throw error;
+        } finally {
+            // Cleanup temp file
+            try {
+                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+            } catch (e) { /* ignore cleanup errors */ }
+        }
     }
 
     /**
@@ -980,10 +1011,9 @@ class CoHUIController {
     }
 
     /**
-     * API: Phân tích giỏ hàng và gợi ý (OLD VERSION - Python real-time)
+     * API: Phân tích giỏ hàng và gợi ý (Java real-time)
      * POST /api/cohui/cart-analysis
      * Body: { cartItems: [productID1, productID2, ...] }
-     * Giữ lại để backup
      */
     static async analyzeCart(req, res) {
         try {
@@ -1008,26 +1038,51 @@ class CoHUIController {
                 });
             }
 
-            // Gọi Python service
-            const inputData = {
-                action: 'cart_analysis',
-                orders: ordersData,
-                cartItems: cartItems.map(id => parseInt(id)),
+            // Gọi Java service
+            const result = await CoHUIController.callJavaService(ordersData, {
                 minutil: parseFloat(minutil),
-                mincor: parseFloat(mincor),
-                topN: parseInt(topN)
-            };
+                mincor: parseFloat(mincor)
+            });
 
-            const result = await CoHUIController.callPythonService(inputData);
+            // Tìm recommendations liên quan đến cartItems
+            const cartItemIDs = cartItems.map(id => parseInt(id));
+            const relatedItems = {};
+
+            if (result.success && result.cohuis) {
+                for (const cohui of result.cohuis) {
+                    const hasCartItem = cohui.items.some(id => cartItemIDs.includes(id));
+                    if (hasCartItem) {
+                        for (const itemID of cohui.items) {
+                            if (!cartItemIDs.includes(itemID)) {
+                                if (!relatedItems[itemID]) {
+                                    relatedItems[itemID] = { score: 0, count: 0 };
+                                }
+                                relatedItems[itemID].score += cohui.kulc * cohui.utility;
+                                relatedItems[itemID].count++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Sort by score and take topN
+            const topRecommendations = Object.entries(relatedItems)
+                .sort((a, b) => b[1].score - a[1].score)
+                .slice(0, parseInt(topN))
+                .map(([productID, data]) => ({
+                    productID: parseInt(productID),
+                    correlation: data.score,
+                    matchCount: data.count
+                }));
 
             // Lấy thông tin chi tiết sản phẩm
-            if (result.success && result.recommendations.length > 0) {
-                const productIDs = result.recommendations.map(r => r.productID);
-                const products = await Product.find({ 
-                    productID: { $in: productIDs } 
+            if (topRecommendations.length > 0) {
+                const productIDs = topRecommendations.map(r => r.productID);
+                const products = await Product.find({
+                    productID: { $in: productIDs }
                 }).lean();
 
-                result.recommendations = result.recommendations.map(rec => {
+                const recommendations = topRecommendations.map(rec => {
                     const prod = products.find(p => p.productID === rec.productID);
                     return {
                         ...rec,
@@ -1040,9 +1095,22 @@ class CoHUIController {
                         } : null
                     };
                 });
-            }
 
-            res.status(200).json(result);
+                res.status(200).json({
+                    success: true,
+                    totalPatterns: result.totalPatterns,
+                    recommendations,
+                    source: 'CoHUI_CaiTien (Java)'
+                });
+            } else {
+                res.status(200).json({
+                    success: true,
+                    totalPatterns: result.totalPatterns || 0,
+                    recommendations: [],
+                    message: 'Không tìm thấy patterns liên quan đến giỏ hàng',
+                    source: 'CoHUI_CaiTien (Java)'
+                });
+            }
 
         } catch (error) {
             console.error('Error in analyzeCart:', error);
@@ -1057,12 +1125,38 @@ class CoHUIController {
     /**
      * API: Lấy thống kê CoHUI patterns
      * GET /api/cohui/statistics
+     * Ưu tiên đọc từ metrics.json (đã lưu từ pipeline), fallback chạy Java real-time
      */
     static async getStatistics(req, res) {
         try {
-            const { minutil = 0.001, mincor = 0.3, maxlen = 3 } = req.query;
+            const { minutil = 0.001, mincor = 0.3 } = req.query;
 
-            // Lấy dữ liệu đơn hàng
+            // Ưu tiên đọc metrics.json đã lưu sẵn
+            const metricsPath = path.join(__dirname, '../CoIUM/metrics.json');
+            if (fs.existsSync(metricsPath)) {
+                const metricsData = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+                const statistics = {
+                    totalOrders: metricsData.total_transactions || 0,
+                    totalPatterns: metricsData.patterns_count || 0,
+                    runtime: metricsData.runtime || 0,
+                    memory: metricsData.memory || 0,
+                    algorithm: metricsData.algorithm || 'CoHUI_CaiTien (Java)',
+                    parameters: {
+                        minutil: metricsData.minutil || minutil,
+                        mincor: metricsData.mincor || mincor,
+                        abs_minutil: metricsData.abs_minutil || 0
+                    },
+                    timestamp: metricsData.timestamp || 0
+                };
+
+                return res.status(200).json({
+                    success: true,
+                    statistics,
+                    source: 'cached metrics'
+                });
+            }
+
+            // Fallback: chạy Java real-time
             const ordersData = await CoHUIController.prepareOrdersData();
 
             if (ordersData.length < 2) {
@@ -1073,38 +1167,28 @@ class CoHUIController {
                 });
             }
 
-            // Gọi Python service
-            const inputData = {
-                action: 'recommend',
-                orders: ordersData,
+            const result = await CoHUIController.callJavaService(ordersData, {
                 minutil: parseFloat(minutil),
-                mincor: parseFloat(mincor),
-                maxlen: parseInt(maxlen),
-                topN: 100  // Lấy nhiều để thống kê
+                mincor: parseFloat(mincor)
+            });
+
+            const statistics = {
+                totalOrders: ordersData.length,
+                totalPatterns: result.totalPatterns || 0,
+                runtime: (result.runtime_ms || 0) / 1000,
+                memory: result.memory_mb || 0,
+                algorithm: 'CoHUI_CaiTien (Java)',
+                parameters: {
+                    minutil,
+                    mincor
+                }
             };
 
-            const result = await CoHUIController.callPythonService(inputData);
-
-            if (result.success) {
-                const statistics = {
-                    totalOrders: ordersData.length,
-                    totalPatterns: result.totalPatterns || 0,
-                    totalRecommendations: result.recommendations.length,
-                    topPatterns: result.patterns || [],
-                    parameters: {
-                        minutil,
-                        mincor,
-                        maxlen
-                    }
-                };
-
-                res.status(200).json({
-                    success: true,
-                    statistics
-                });
-            } else {
-                res.status(200).json(result);
-            }
+            res.status(200).json({
+                success: true,
+                statistics,
+                source: 'real-time Java analysis'
+            });
 
         } catch (error) {
             console.error('Error in getStatistics:', error);

@@ -49,35 +49,76 @@ async function exportDataForCoIUM() {
         // ========================================================================
         console.log('📝 Đang tạo file transactions...');
         let transactionLines = [];
+        let utilityLines = [];
         let validOrderCount = 0;
+        let totalDatasetUtility = 0;
 
         orders.forEach(order => {
             const details = orderDetailsMap[order.orderID] || [];
             if (details.length > 0) {
-                // Lấy danh sách productID từ SKU
-                const productIDs = details.map(d => {
+                // Collect {productID, quantity, price} per detail line
+                const itemEntries = details.map(d => {
                     // SKU format: PRODUCT_ID-SIZE-COLOR_ID hoặc PRODUCT_ID-COLOR_ID
                     const parts = d.SKU.split('-');
-                    return parseInt(parts[0]);
-                }).filter(id => !isNaN(id));
+                    const productID = parseInt(parts[0]);
+                    const quantity = d.quantity || 1;
+                    const price = productProfitMap[productID] || 1000;
+                    return { productID, quantity, price };
+                }).filter(entry => !isNaN(entry.productID));
 
-                if (productIDs.length > 0) {
+                if (itemEntries.length > 0) {
+                    // --- Transaction line (co-occurrence format, keep as-is) ---
+                    const productIDs = itemEntries.map(e => e.productID);
                     transactionLines.push(productIDs.join(' '));
+
+                    // --- Utility line (Java HUIM format) ---
+                    // Deduplicate by productID: sum quantities for same product
+                    const deduped = {};
+                    itemEntries.forEach(entry => {
+                        if (deduped[entry.productID]) {
+                            deduped[entry.productID].quantity += entry.quantity;
+                        } else {
+                            deduped[entry.productID] = { ...entry };
+                        }
+                    });
+
+                    // Sort by productID ascending
+                    const sorted = Object.values(deduped).sort((a, b) => a.productID - b.productID);
+
+                    const sortedIDs = sorted.map(e => e.productID);
+                    const itemUtilities = sorted.map(e => e.price * e.quantity);
+                    const transactionUtility = itemUtilities.reduce((sum, u) => sum + u, 0);
+                    totalDatasetUtility += transactionUtility;
+
+                    // Format: item1 item2:totalUtility:util1 util2
+                    utilityLines.push(
+                        `${sortedIDs.join(' ')}:${transactionUtility}:${itemUtilities.join(' ')}`
+                    );
+
                     validOrderCount++;
                 }
             }
         });
 
-        const transactionFile = path.join(__dirname, '../../CoIUM_Final/datasets/fashion_store.dat');
+        const transactionFile = path.join(__dirname, 'fashion_store.dat');
         fs.writeFileSync(transactionFile, transactionLines.join('\n'), 'utf8');
         console.log(`✅ Đã tạo ${transactionFile}`);
         console.log(`   - ${validOrderCount} transactions hợp lệ\n`);
 
         // ========================================================================
-        // 2. TẠO FILE PROFITS (định dạng: itemID:profit itemID:profit...)
+        // 2. TẠO FILE UTILITY (Java HUIM format: items:TU:utilities)
+        // ========================================================================
+        console.log('⚡ Đang tạo file utility...');
+        const utilityFile = path.join(__dirname, 'fashion_store_utility.dat');
+        fs.writeFileSync(utilityFile, utilityLines.join('\n'), 'utf8');
+        console.log(`✅ Đã tạo ${utilityFile}`);
+        console.log(`   - ${utilityLines.length} transactions với utility\n`);
+
+        // ========================================================================
+        // 3. TẠO FILE PROFITS (định dạng: itemID profit)
         // ========================================================================
         console.log('💰 Đang tạo file profits...');
-        
+
         // Lấy tất cả unique productIDs từ transactions
         const allProductIDs = new Set();
         transactionLines.forEach(line => {
@@ -91,7 +132,7 @@ async function exportDataForCoIUM() {
             profitPairs.push(`${productID}:${profit}`);
         });
 
-        const profitFile = path.join(__dirname, '../../CoIUM_Final/profits/fashion_store_profits.txt');
+        const profitFile = path.join(__dirname, 'fashion_store_profits.txt');
         // Format: item profit (mỗi cặp trên 1 dòng) để phù hợp với load_profits_from_file
         const profitLines = profitPairs.map(pair => pair.replace(':', ' '));
         fs.writeFileSync(profitFile, profitLines.join('\n'), 'utf8');
@@ -99,15 +140,30 @@ async function exportDataForCoIUM() {
         console.log(`   - ${profitPairs.length} sản phẩm có profit\n`);
 
         // ========================================================================
-        // 3. THỐNG KÊ
+        // 4. TẠO FILE EXPORT STATS (JSON)
+        // ========================================================================
+        console.log('📊 Đang tạo file export stats...');
+        const exportStats = {
+            totalTransactions: validOrderCount,
+            totalUniqueItems: allProductIDs.size,
+            totalDatasetUtility: totalDatasetUtility,
+            exportTimestamp: Math.floor(Date.now() / 1000)
+        };
+        const statsFile = path.join(__dirname, 'export_stats.json');
+        fs.writeFileSync(statsFile, JSON.stringify(exportStats, null, 2), 'utf8');
+        console.log(`✅ Đã tạo ${statsFile}\n`);
+
+        // ========================================================================
+        // 5. THỐNG KÊ
         // ========================================================================
         console.log('📊 THỐNG KÊ DỮ LIỆU:\n');
         console.log('═'.repeat(80));
-        console.log(`Tổng số orders        : ${orders.length}`);
-        console.log(`Orders hợp lệ         : ${validOrderCount}`);
-        console.log(`Tổng order details    : ${orderDetails.length}`);
-        console.log(`Tổng sản phẩm unique  : ${allProductIDs.size}`);
-        console.log(`Tổng sản phẩm có profit: ${profitPairs.length}`);
+        console.log(`Tổng số orders           : ${orders.length}`);
+        console.log(`Orders hợp lệ            : ${validOrderCount}`);
+        console.log(`Tổng order details       : ${orderDetails.length}`);
+        console.log(`Tổng sản phẩm unique     : ${allProductIDs.size}`);
+        console.log(`Tổng sản phẩm có profit  : ${profitPairs.length}`);
+        console.log(`Tổng dataset utility     : ${totalDatasetUtility.toLocaleString()}`);
         console.log('═'.repeat(80));
 
         // Thống kê số items per transaction
@@ -141,11 +197,11 @@ async function exportDataForCoIUM() {
 
         console.log('\n✅ XUẤT DỮ LIỆU HOÀN TẤT!\n');
         console.log('📁 Files đã tạo:');
-        console.log(`   - ${transactionFile}`);
-        console.log(`   - ${profitFile}\n`);
-        console.log('🚀 Bây giờ bạn có thể chạy CoIUM với lệnh:');
-        console.log('   cd ../CoIUM_Final');
-        console.log('   python run_fashion_store.py\n');
+        console.log(`   1. ${transactionFile}  (co-occurrence transactions)`);
+        console.log(`   2. ${utilityFile}  (Java HUIM utility format)`);
+        console.log(`   3. ${profitFile}  (item profits)`);
+        console.log(`   4. ${statsFile}  (export statistics)\n`);
+        console.log('🚀 Dữ liệu đã sẵn sàng cho CoHUI Java pipeline.\n');
 
     } catch (error) {
         console.error('❌ Lỗi:', error);

@@ -4,134 +4,153 @@ const util = require('util');
 const fs = require('fs').promises;
 const execPromise = util.promisify(exec);
 
-// Hàm chạy toàn bộ quy trình CoIUM
+// Hàm chạy toàn bộ quy trình CoHUI (Java thay thế Python)
 const runCoIUMProcess = async (req, res) => {
     try {
         const serverPath = path.join(__dirname, '..');
         const projectRoot = path.join(serverPath, '..');
-        const coiumPath = path.join(projectRoot, 'CoIUM_Final');
-        
-        console.log('Bắt đầu quy trình CoIUM...');
+        const coiumDataPath = path.join(serverPath, 'CoIUM');
+        const javaPath = path.join(projectRoot, 'CoHUI_CaiTien_RU_LA_KUL');
+        const jarPath = path.join(javaPath, 'CoHUI_Server.jar');
+
+        console.log('Bắt đầu quy trình CoHUI (Java)...');
         console.log('Server path:', serverPath);
-        console.log('Project root:', projectRoot);
-        console.log('CoIUM path:', coiumPath);
-        
-        // Bước 1: Export orders từ MongoDB
+        console.log('CoIUM data path:', coiumDataPath);
+        console.log('Java path:', javaPath);
+
+        // ===== Bước 1: Export orders từ MongoDB =====
         console.log('Bước 1/4: Export orders từ MongoDB...');
-        const exportCmd = `node "${path.join(serverPath, 'CoIUM', 'export-orders-for-coium.js')}"`;
+        const exportCmd = `node "${path.join(coiumDataPath, 'export-orders-for-coium.js')}"`;
         const { stdout: exportOutput, stderr: exportError } = await execPromise(exportCmd, {
             cwd: serverPath,
-            maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+            maxBuffer: 10 * 1024 * 1024
         });
-        
+
         if (exportError) {
             console.error('Export stderr:', exportError);
         }
         console.log('Export output:', exportOutput);
-        
-        // Bước 2: Chạy CoIUM algorithm
-        console.log('Bước 2/4: Chạy CoIUM algorithm...');
-        const pythonCmd = `python run_fashion_store.py`;
-        const { stdout: pythonOutput, stderr: pythonError } = await execPromise(pythonCmd, {
-            cwd: coiumPath,
-            maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+
+        // Đọc export_stats.json để tính minUtil
+        const statsPath = path.join(coiumDataPath, 'export_stats.json');
+        const statsData = JSON.parse(await fs.readFile(statsPath, 'utf8'));
+
+        // Tính minUtil absolute từ ratio * totalDatasetUtility
+        const minUtilRatio = 0.001;
+        const minCor = 0.5;
+        const absMinUtil = Math.round(minUtilRatio * statsData.totalDatasetUtility);
+        const maxTransactions = 99999;
+
+        console.log(`   Tính minUtil: ${minUtilRatio} * ${statsData.totalDatasetUtility} = ${absMinUtil}`);
+
+        // ===== Bước 2: Chạy CoHUI algorithm (Java) =====
+        console.log('Bước 2/4: Chạy CoHUI algorithm (Java)...');
+        const inputFile = path.join(coiumDataPath, 'fashion_store_utility.dat');
+        const javaCmd = `java -jar "${jarPath}" "${inputFile}" ${maxTransactions} ${absMinUtil} ${minCor}`;
+
+        console.log(`   Java command: ${javaCmd}`);
+
+        const { stdout: javaOutput, stderr: javaError } = await execPromise(javaCmd, {
+            cwd: javaPath,
+            maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large output
             timeout: 300000 // 5 minutes timeout
         });
-        
-        if (pythonError && !pythonError.includes('WARNING')) {
-            console.error('Python stderr:', pythonError);
+
+        if (javaError) {
+            console.error('Java stderr:', javaError);
         }
-        console.log('Python output:', pythonOutput);
-        
-        // Bước 3: Phân tích correlation
-        console.log('Bước 3/4: Phân tích correlation...');
-        const analyzeCmd = `python analyze_correlation_results.py`;
-        const { stdout: analyzeOutput, stderr: analyzeError } = await execPromise(analyzeCmd, {
-            cwd: coiumPath,
+
+        // Parse JSON output từ Java
+        let cohuiResult;
+        try {
+            cohuiResult = JSON.parse(javaOutput);
+        } catch (parseErr) {
+            console.error('Java stdout (first 500 chars):', javaOutput.substring(0, 500));
+            throw new Error(`Failed to parse Java output: ${parseErr.message}`);
+        }
+
+        console.log(`   CoHUI count: ${cohuiResult.cohui_count}`);
+        console.log(`   Runtime: ${cohuiResult.runtime_ms} ms`);
+        console.log(`   Memory: ${cohuiResult.memory_mb} MB`);
+
+        // Lưu Java output để Step 3 đọc
+        const cohuiOutputPath = path.join(coiumDataPath, 'cohui_output.json');
+        await fs.writeFile(cohuiOutputPath, JSON.stringify(cohuiResult, null, 2), 'utf8');
+
+        // Lưu metrics.json
+        const metricsPath = path.join(coiumDataPath, 'metrics.json');
+        const metrics = {
+            runtime: cohuiResult.runtime_ms / 1000, // convert to seconds
+            memory: cohuiResult.memory_mb,
+            patterns_count: cohuiResult.cohui_count,
+            total_transactions: cohuiResult.total_transactions,
+            total_items: cohuiResult.total_items,
+            minutil: minUtilRatio,
+            mincor: minCor,
+            abs_minutil: absMinUtil,
+            timestamp: Math.floor(Date.now() / 1000),
+            algorithm: 'CoHUI_CaiTien (Java)'
+        };
+        await fs.writeFile(metricsPath, JSON.stringify(metrics, null, 2), 'utf8');
+        console.log('   Đã lưu metrics.json');
+
+        // ===== Bước 3: Build correlation recommendations (Node.js thay Python) =====
+        console.log('Bước 3/4: Build correlation recommendations...');
+        const buildCmd = `node "${path.join(coiumDataPath, 'build-correlation-from-cohui.js')}"`;
+        const { stdout: buildOutput, stderr: buildError } = await execPromise(buildCmd, {
+            cwd: coiumDataPath,
             maxBuffer: 10 * 1024 * 1024
         });
-        
-        if (analyzeError && !analyzeError.includes('WARNING')) {
-            console.error('Analyze stderr:', analyzeError);
+
+        if (buildError) {
+            console.error('Build stderr:', buildError);
         }
-        console.log('Analyze output:', analyzeOutput);
-        
-        // Bước 4: Generate correlation map
+        console.log('Build output:', buildOutput);
+
+        // ===== Bước 4: Generate correlation map =====
         console.log('Bước 4/4: Generate correlation map...');
-        const generateCmd = `node "${path.join(serverPath, 'CoIUM', 'generate-correlation-map.js')}"`;
+        const generateCmd = `node "${path.join(coiumDataPath, 'generate-correlation-map.js')}"`;
         const { stdout: generateOutput, stderr: generateError } = await execPromise(generateCmd, {
             cwd: serverPath,
             maxBuffer: 10 * 1024 * 1024
         });
-        
+
         if (generateError) {
             console.error('Generate stderr:', generateError);
         }
         console.log('Generate output:', generateOutput);
-        
+
         // Đọc file correlation_map.json để lấy số lượng sản phẩm
-        const correlationMapPath = path.join(serverPath, 'CoIUM', 'correlation_map.json');
+        const correlationMapPath = path.join(coiumDataPath, 'correlation_map.json');
         let totalProducts = 0;
         let totalRecommendations = 0;
-        
+
         try {
             const correlationMapData = await fs.readFile(correlationMapPath, 'utf8');
             const correlationMap = JSON.parse(correlationMapData);
             totalProducts = Object.keys(correlationMap).length;
-            
-            // Đếm tổng số recommendations
+
             Object.values(correlationMap).forEach(recommendations => {
                 totalRecommendations += recommendations.length;
             });
         } catch (error) {
             console.error('Lỗi khi đọc correlation_map.json:', error.message);
         }
-        
-        console.log('Hoàn thành quy trình CoIUM!');
+
+        console.log('Hoàn thành quy trình CoHUI!');
         console.log(`Tổng số sản phẩm: ${totalProducts}`);
         console.log(`Tổng số recommendations: ${totalRecommendations}`);
-        
-        // ===== ĐỌC METRICS TỪ PYTHON =====
-        const metricsPath = path.join(coiumPath, 'metrics.json');
-        let metrics = {
-            runtime: 0,
-            memory: 0,
-            patternsCount: 0,
-            minutil: 0.001,
-            mincor: 0.5
-        };
-        
-        try {
-            const metricsData = await fs.readFile(metricsPath, 'utf8');
-            const metricsJson = JSON.parse(metricsData);
-            metrics = {
-                runtime: metricsJson.runtime || 0,
-                memory: metricsJson.memory || 0,
-                patternsCount: metricsJson.patterns_count || 0,
-                minutil: metricsJson.minutil || 0.001,
-                mincor: metricsJson.mincor || 0.5,
-                timestamp: metricsJson.timestamp || Date.now()
-            };
-            console.log('✅ Đã đọc metrics từ Python');
-            console.log(`   📊 Runtime: ${metrics.runtime}s`);
-            console.log(`   💾 Memory: ${metrics.memory} MB`);
-            console.log(`   🔍 Patterns: ${metrics.patternsCount}`);
-        } catch (error) {
-            console.warn('⚠️  Không đọc được metrics.json:', error.message);
-            console.warn('   Sử dụng giá trị mặc định');
-        }
-        
+
         res.json({
             success: true,
-            message: 'Chạy CoIUM thành công!',
+            message: 'Chạy CoHUI thành công!',
             data: {
                 totalProducts,
                 totalRecommendations,
                 avgRecommendationsPerProduct: totalProducts > 0 ? (totalRecommendations / totalProducts).toFixed(2) : 0,
-                // NEW: Real metrics from Python
                 runtime: metrics.runtime,
                 memory: metrics.memory,
-                patternsCount: metrics.patternsCount,
+                patternsCount: metrics.patterns_count,
                 minutil: metrics.minutil,
                 mincor: metrics.mincor,
                 metricsTimestamp: metrics.timestamp
@@ -141,7 +160,7 @@ const runCoIUMProcess = async (req, res) => {
         console.error('❌ Lỗi trong runCoIUMProcess:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi khi chạy CoIUM',
+            message: 'Lỗi khi chạy CoHUI',
             error: error.message
         });
     }
