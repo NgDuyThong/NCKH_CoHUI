@@ -23,6 +23,14 @@ const cartSchema = new Schema({
         required: true,
         min: 1,
         default: 1
+    },
+    comboGroupId: {
+        type: String,
+        default: null
+    },
+    comboDiscount: {
+        type: Number,
+        default: 0
     }
 }, {
     timestamps: true // Tự động thêm createdAt và updatedAt

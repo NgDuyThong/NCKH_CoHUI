@@ -849,6 +849,11 @@ const Cart = () => {
                                     Sản phẩm không khả dụng, vui lòng liên hệ cửa hàng
                                   </span>
                                 )}
+                                {item.combo && (
+                                  <span className="inline-block px-2 py-1 mt-1 text-xs font-medium text-green-600 bg-green-50 rounded-lg">
+                                    Combo -{item.combo.comboDiscount}%
+                                  </span>
+                                )}
                               </div>
                               <button
                                 onClick={() => handleShowDeleteConfirm(item.cartID)}

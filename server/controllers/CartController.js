@@ -3,6 +3,7 @@ const ProductSizeStock = require('../models/ProductSizeStock');
 const Product = require('../models/Product');
 const ProductColor = require('../models/ProductColor');
 const Promotion = require('../models/Promotion');
+const Category = require('../models/Category');
 const { getImageLink } = require('../middlewares/ImagesCloudinary_Controller');
 
 class CartController {
@@ -84,6 +85,18 @@ class CartController {
                         };
                     }
 
+                    // Áp dụng combo discount nếu có
+                    let comboDetails = null;
+                    if (item.comboDiscount && item.comboDiscount > 0 && item.comboGroupId) {
+                        const priceBeforeCombo = finalPrice;
+                        finalPrice = Math.round(finalPrice * (1 - item.comboDiscount / 100));
+                        comboDetails = {
+                            comboGroupId: item.comboGroupId,
+                            comboDiscount: item.comboDiscount,
+                            priceBeforeCombo: priceBeforeCombo.toLocaleString('vi-VN')
+                        };
+                    }
+
                     // Tính tổng giá trị của mỗi sản phẩm
                     const subtotal = finalPrice * item.quantity;
                     totalAmount += subtotal;
@@ -111,7 +124,8 @@ class CartController {
                         price: finalPrice.toLocaleString('vi-VN'),
                         originalPrice: product.price,
                         subtotal: subtotal.toLocaleString('vi-VN'),
-                        stock: sizeStock.stock
+                        stock: sizeStock.stock,
+                        combo: comboDetails
                     };
                 } catch (error) {
                     console.error(`Lỗi khi xử lý item ${item.cartID}:`, error);
@@ -167,19 +181,63 @@ class CartController {
                 });
             }
 
+            // Lấy thông tin giá cả 2 sản phẩm để tính combo discount
+            const product1Info = await Product.findOne({ productID: product1.productID });
+            const product2Info = await Product.findOne({ productID: product2.productID });
+
+            if (!product1Info || !product2Info) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy thông tin sản phẩm'
+                });
+            }
+
+            // Tính giá sau khuyến mãi cho mỗi sản phẩm
+            const currentDate = new Date();
+            const getProductFinalPrice = async (product) => {
+                const basePrice = parseInt(product.price.replace(/\./g, ''));
+                const category = await Category.findOne({ categoryID: product.categoryID });
+                const promotion = await Promotion.findOne({
+                    $or: [
+                        { products: product._id },
+                        ...(category ? [{ categories: category.name }] : [])
+                    ],
+                    startDate: { $lte: currentDate },
+                    endDate: { $gte: currentDate },
+                    status: 'active'
+                }).sort({ discountPercent: -1 });
+
+                if (promotion) {
+                    return Math.round(basePrice * (1 - promotion.discountPercent / 100));
+                }
+                return basePrice;
+            };
+
+            const price1 = await getProductFinalPrice(product1Info);
+            const price2 = await getProductFinalPrice(product2Info);
+            const totalPrice = price1 + price2;
+
+            // Tính combo discount theo mức giá
+            let comboDiscountPercent = 0;
+            if (totalPrice >= 3000000) {
+                comboDiscountPercent = 10;
+            } else if (totalPrice >= 1000000) {
+                comboDiscountPercent = 5;
+            } else {
+                comboDiscountPercent = 3;
+            }
+
+            const comboGroupId = `combo_${userID}_${Date.now()}`;
+            console.log('💰 Combo discount:', comboDiscountPercent, '% | Total:', totalPrice, '| GroupId:', comboGroupId);
+
             // Thêm từng sản phẩm vào giỏ
             const products = [product1, product2];
+            const productInfos = [product1Info, product2Info];
             const addedItems = [];
 
-            for (const product of products) {
-                // Tìm thông tin sản phẩm
-                const productInfo = await Product.findOne({ productID: product.productID });
-                if (!productInfo) {
-                    return res.status(404).json({
-                        success: false,
-                        message: `Không tìm thấy sản phẩm #${product.productID}`
-                    });
-                }
+            for (let i = 0; i < products.length; i++) {
+                const product = products[i];
+                const productInfo = productInfos[i];
 
                 // Kiểm tra màu sắc
                 const colorInfo = await ProductColor.findOne({
@@ -195,7 +253,7 @@ class CartController {
                 }
 
                 // Tìm thông tin size và tồn kho bằng sizeStockID
-                const sizeStock = await ProductSizeStock.findOne({ 
+                const sizeStock = await ProductSizeStock.findOne({
                     sizeStockID: product.sizeStockID,
                     colorID: product.colorID
                 });
@@ -226,9 +284,9 @@ class CartController {
                 let cartItem = await Cart.findOne({ userID, SKU });
 
                 if (cartItem) {
-                    // Nếu đã có thì tăng số lượng
+                    // Nếu đã có thì tăng số lượng và cập nhật combo info
                     const newQuantity = cartItem.quantity + 1;
-                    
+
                     if (newQuantity > sizeStock.stock) {
                         return res.status(400).json({
                             success: false,
@@ -237,9 +295,11 @@ class CartController {
                     }
 
                     cartItem.quantity = newQuantity;
+                    cartItem.comboGroupId = comboGroupId;
+                    cartItem.comboDiscount = comboDiscountPercent;
                     await cartItem.save();
                 } else {
-                    // Nếu chưa có thì thêm mới
+                    // Nếu chưa có thì thêm mới với combo info
                     const lastCart = await Cart.findOne().sort({ cartID: -1 });
                     const cartID = lastCart ? lastCart.cartID + 1 : 1;
 
@@ -247,7 +307,9 @@ class CartController {
                         cartID,
                         userID,
                         SKU,
-                        quantity: 1
+                        quantity: 1,
+                        comboGroupId,
+                        comboDiscount: comboDiscountPercent
                     });
                     await cartItem.save();
                 }
@@ -265,7 +327,8 @@ class CartController {
             res.status(201).json({
                 success: true,
                 message: 'Đã thêm combo vào giỏ hàng',
-                items: addedItems
+                items: addedItems,
+                comboDiscount: comboDiscountPercent
             });
 
         } catch (error) {
@@ -467,6 +530,14 @@ class CartController {
             const cartItem = await Cart.findOne({ cartID: id, userID });
             if (!cartItem) {
                 return res.status(404).json({ message: 'Không tìm thấy sản phẩm trong giỏ hàng' });
+            }
+
+            // Nếu xóa sản phẩm combo, xóa combo discount của sản phẩm còn lại
+            if (cartItem.comboGroupId) {
+                await Cart.updateMany(
+                    { userID, comboGroupId: cartItem.comboGroupId, cartID: { $ne: parseInt(id) } },
+                    { $set: { comboGroupId: null, comboDiscount: 0 } }
+                );
             }
 
             await cartItem.deleteOne();

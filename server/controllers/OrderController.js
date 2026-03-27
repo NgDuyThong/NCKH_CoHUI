@@ -427,6 +427,20 @@ class OrderController {
                     console.log('Không có khuyến mãi áp dụng, giữ nguyên giá gốc');
                 }
 
+                // Áp dụng combo discount nếu có
+                const cartItem = await Cart.findOne({ userID, SKU: item.SKU });
+                if (cartItem && cartItem.comboDiscount > 0 && cartItem.comboGroupId) {
+                    const priceBeforeCombo = finalPrice;
+                    finalPrice = Math.round(finalPrice * (1 - cartItem.comboDiscount / 100));
+                    console.log('Áp dụng combo discount:', {
+                        SKU: item.SKU,
+                        comboGroupId: cartItem.comboGroupId,
+                        comboDiscount: cartItem.comboDiscount,
+                        priceBeforeCombo,
+                        finalPrice
+                    });
+                }
+
                 const itemTotal = finalPrice * item.quantity;
                 totalPrice += itemTotal;
 
