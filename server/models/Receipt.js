@@ -95,7 +95,6 @@ const receiptSchema = new Schema({
 });
 
 // Thêm index
-receiptSchema.index({ receiptNumber: 1 });
 receiptSchema.index({ receiptDate: -1 });
 receiptSchema.index({ status: 1 });
 receiptSchema.index({ createdAt: -1 });

@@ -1,12 +1,12 @@
 {
-  "runtime": 0.114,
-  "memory": 26,
+  "runtime": 0.083,
+  "memory": 27,
   "patterns_count": 14,
   "total_transactions": 25777,
   "total_items": 112,
   "minutil": 0.0001,
   "mincor": 0.5,
   "abs_minutil": 18128098,
-  "timestamp": 1774668440,
+  "timestamp": 1774686217,
   "algorithm": "CoHUI_CaiTien (Java)"
 }
