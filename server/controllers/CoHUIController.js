@@ -255,17 +255,27 @@ class CoHUIController {
             const productCorrelations = {};
 
             for (const [sourceProduct, recommendations] of Object.entries(correlationMapData)) {
+                // Đếm source product (product có recommendations cho người khác)
+                const sourceID = parseInt(sourceProduct);
+                if (!productFrequency[sourceID]) {
+                    productFrequency[sourceID] = 0;
+                    productCorrelations[sourceID] = [];
+                }
+                // Source product được tính 1 điểm cơ bản vì nó có mặt trong correlation map
+                productFrequency[sourceID] += 1;
+                productCorrelations[sourceID].push(0.5);
+
                 recommendations.forEach((rec, index) => {
                     const productID = rec.productID;
-                    
+
                     // Đếm frequency
                     if (!productFrequency[productID]) {
                         productFrequency[productID] = 0;
                         productCorrelations[productID] = [];
                     }
-                    
+
                     productFrequency[productID]++;
-                    
+
                     // Lưu correlation score (càng cao càng tốt, càng xuất hiện đầu trong list càng quan trọng)
                     const position = index + 1;
                     const positionScore = 1 / position; // Top 1 = 1.0, Top 2 = 0.5, Top 3 = 0.33...

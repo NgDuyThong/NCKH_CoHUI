@@ -1,0 +1,3 @@
+{
+  "ignore": ["CoIUM/*.dat", "CoIUM/*.txt", "CoIUM/*.json", "CoIUM/export_stats.json", "CoIUM/cohui_output.json", "CoIUM/correlation_recommendations.json", "CoIUM/correlation_map.json", "CoIUM/metrics.json"]
+}

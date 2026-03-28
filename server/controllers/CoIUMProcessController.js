@@ -36,7 +36,7 @@ const runCoIUMProcess = async (req, res) => {
         const statsData = JSON.parse(await fs.readFile(statsPath, 'utf8'));
 
         // Tính minUtil absolute từ ratio * totalDatasetUtility
-        const minUtilRatio = 0.001;
+        const minUtilRatio = 0.0001;
         const minCor = 0.5;
         const absMinUtil = Math.round(minUtilRatio * statsData.totalDatasetUtility);
         const maxTransactions = 99999;
